@@ -444,3 +444,31 @@ coverage
 cdk.out
 tsconfig.json
 ```
+
+#### Running the scripts automatically on pre-commit
+
+We will use [Husky](https://www.npmjs.com/package/husky) to automatically run these scripts on pre-commit.
+
+```
+npm i --save-dev husky
+```
+
+Now we can add the commands to the package.json scripts
+
+```json
+{
+  "prepare": "cd .. && husky install config/.husky",
+  "precommit": "npm run synth && npm run test && npm run lint:fix && npm run format",
+  "prepush": "npm run lint"
+}
+```
+
+Now we can run `npm run prepare` to set up husky in the root of the project (outside of the `serverless-pro` application)
+
+Then we can run the following (also from the root)
+
+```
+npx husky add config/.husky/pre-commit "npm run precommit"
+
+npx husky add config/.husky/pre-push "npm run prepush"
+```
