@@ -347,3 +347,31 @@ This is why personally I would go with the approach of the environment specific 
 #### Disadvantages
 
 - One disadvantage could be having configuration values in two places, i.e. a typed object file as well as the `cdk.json` file. This would be one for coding standards and ways or working in your organisation I would say personally (_agree on one and stick to it!_)
+
+---
+
+---
+
+# Part 2 - Pipeline Testing, Manual Approval, Database Deploys and SAST Tooling
+
+## Example Application Updates
+
+The example application created in part 1 will be updated to add the additional refinements:
+
+1. Developers commit changes to the code and push to GitHub. At this build stage, we run unit testing, linting, formatting, and SAST on pre-commit
+
+2. A webhook in GitHub invokes our CDK Pipeline with the exact commit information
+
+3. The AWS CDK Pipeline is self-mutating, so any changes to pipeline code are deployed during a self-update process.
+
+4. CodePipeline is invoked to run the actual pipeline now that it has been updated. This is across our 3 stages (Development, Staging, and Production). This is where we perform our tests
+
+5. As part of this pipeline, a custom resource invokes a lambda function which seeds our configuration data to DynamoDB (store data configuration)
+
+6. The pipeline performs integration tests using Postman and Newman, as well as load testing with Artillery.
+
+## Key Considerations and Code Walkthrough
+
+In part 2 we will be updating the application, focusing on Build, Test and Staging stages.
+
+### Build Stage
