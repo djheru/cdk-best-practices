@@ -1,10 +1,10 @@
-import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import {
   APIGatewayEvent,
   APIGatewayProxyHandler,
   APIGatewayProxyResult,
-} from "aws-lambda";
-import { v4 as uuid } from "uuid";
+} from 'aws-lambda';
+import { v4 as uuid } from 'uuid';
 
 const { TABLE_NAME: TableName } = process.env;
 const client = new DynamoDBClient({});
@@ -14,17 +14,17 @@ export const handler: APIGatewayProxyHandler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const correlationId = uuid();
-    const method = "get-order.handler";
+    const method = 'get-order.handler';
     const prefix = `${correlationId} - ${method}`;
 
     if (!process.env.TABLE_NAME) {
-      throw new Error("no table name supplied");
+      throw new Error('no table name supplied');
     }
 
     console.log(`${prefix} - started`);
 
     if (!event?.pathParameters || !event.pathParameters.id)
-      throw new Error("no id in the path parameters of the event");
+      throw new Error('no id in the path parameters of the event');
 
     // we get the specific order id from the path parameters in the event from api gateway
     const { id } = event.pathParameters;

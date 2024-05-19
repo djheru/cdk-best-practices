@@ -1,9 +1,9 @@
-import * as cdk from "aws-cdk-lib";
-import * as pipelines from "aws-cdk-lib/pipelines";
-import { pascalCase } from "change-case";
-import { Construct } from "constructs";
-import { environments } from "../pipeline-config/pipeline-config";
-import { PipelineStage } from "../pipeline-stage/pipeline-stage";
+import * as cdk from 'aws-cdk-lib';
+import * as pipelines from 'aws-cdk-lib/pipelines';
+import { pascalCase } from 'change-case';
+import { Construct } from 'constructs';
+import { environments } from '../pipeline-config/pipeline-config';
+import { PipelineStage } from '../pipeline-stage/pipeline-stage';
 
 export class PipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -17,23 +17,23 @@ export class PipelineStack extends cdk.Stack {
     // https://pipelines.devops.aws.dev/application-pipeline/index.html
     const pipeline: pipelines.CodePipeline = new pipelines.CodePipeline(
       this,
-      "PipelineStack",
+      'PipelineStack',
       {
         crossAccountKeys: true,
         selfMutation: true,
-        pipelineName: "serverless-pro-pipeline",
-        synth: new pipelines.ShellStep("Synth", {
+        pipelineName: 'serverless-pro-pipeline',
+        synth: new pipelines.ShellStep('Synth', {
           input: pipelines.CodePipelineSource.gitHub(
-            "djheru/cdk-best-practices",
-            "main"
+            'djheru/cdk-best-practices',
+            'main'
           ),
-          primaryOutputDirectory: "./serverless-pro/cdk.out", // these are our immutable build assets
+          primaryOutputDirectory: './serverless-pro/cdk.out', // these are our immutable build assets
           // source stage
           commands: [
-            "cd ./serverless-pro",
-            "npm ci",
-            "npx cdk synth",
-            "npm run test",
+            'cd ./serverless-pro',
+            'npm ci',
+            'npx cdk synth',
+            'npm run test',
           ],
         }),
       }
@@ -53,52 +53,52 @@ export class PipelineStack extends cdk.Stack {
     // this is the test stage (beta)
     const developmentStage: PipelineStage = new PipelineStage(
       this,
-      "Development",
+      'Development',
       {
         ...environments.dev,
       }
     );
     pipeline.addStage(developmentStage, {
       post: [
-        new pipelines.ShellStep("HealthCheck", {
+        new pipelines.ShellStep('HealthCheck', {
           envFromCfnOutputs: {
             HEALTH_CHECK_ENDPOINT: developmentStage.healthCheckUrl,
           },
-          commands: ["curl -Ssf $HEALTH_CHECK_ENDPOINT"], // demo only basic sanity check
+          commands: ['curl -Ssf $HEALTH_CHECK_ENDPOINT'], // demo only basic sanity check
         }),
       ],
     });
 
     // add the staging stage with the relevant environment config
     // this is the test stage (gamma)
-    const stagingStage: PipelineStage = new PipelineStage(this, "Staging", {
+    const stagingStage: PipelineStage = new PipelineStage(this, 'Staging', {
       ...environments.staging,
     });
     pipeline.addStage(stagingStage, {
       post: [
-        new pipelines.ShellStep("HealthCheck", {
+        new pipelines.ShellStep('HealthCheck', {
           envFromCfnOutputs: {
             HEALTH_CHECK_ENDPOINT: stagingStage.healthCheckUrl,
           },
-          commands: ["curl -Ssf $HEALTH_CHECK_ENDPOINT"], // demo only basic sanity check
+          commands: ['curl -Ssf $HEALTH_CHECK_ENDPOINT'], // demo only basic sanity check
         }),
       ],
     });
 
     // add the prod stage with a manual approval step to the pipeline
-    const prodStage: PipelineStage = new PipelineStage(this, "Production", {
+    const prodStage: PipelineStage = new PipelineStage(this, 'Production', {
       ...environments.prod,
     });
     pipeline.addStage(prodStage, {
       pre: [
-        new pipelines.ManualApprovalStep("PromoteToProd"), // manual approval step
+        new pipelines.ManualApprovalStep('PromoteToProd'), // manual approval step
       ],
       post: [
-        new pipelines.ShellStep("HealthCheck", {
+        new pipelines.ShellStep('HealthCheck', {
           envFromCfnOutputs: {
             HEALTH_CHECK_ENDPOINT: prodStage.healthCheckUrl,
           },
-          commands: ["curl -Ssf $HEALTH_CHECK_ENDPOINT"], // demo only basic sanity check
+          commands: ['curl -Ssf $HEALTH_CHECK_ENDPOINT'], // demo only basic sanity check
         }),
       ],
     });

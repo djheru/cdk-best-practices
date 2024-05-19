@@ -1,11 +1,11 @@
-import { pascalCase } from "change-case";
-import * as dotenv from "dotenv";
+import { pascalCase } from 'change-case';
+import * as dotenv from 'dotenv';
 import {
   Account,
   EnvironmentConfig,
   Region,
   Stage,
-} from "../pipeline-types/pipeline-types";
+} from '../pipeline-types/pipeline-types';
 
 dotenv.config();
 
@@ -22,17 +22,14 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       bucketName: `serverless-pro-${process.env.FEATURE}-bucket`.toLowerCase(),
     },
     stateless: {
-      lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || "128"),
+      lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || '128'),
     },
     stageName: pascalCase(process.env.FEATURE || Stage.feature),
   },
   [Stage.dev]: {
-    env: {
-      account: Account.dev,
-      region: Region.california,
-    },
+    env: { account: Account.dev, region: Region.california },
     stateful: {
-      bucketName: "serverless-pro-feature-dev-bucket-" + Account.dev,
+      bucketName: 'serverless-pro-feature-dev-bucket-' + Account.dev,
     },
     stateless: {
       lambdaMemorySize: 128,
@@ -45,7 +42,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: Region.ohio,
     },
     stateful: {
-      bucketName: "serverless-pro-staging-bucket-" + Account.staging,
+      bucketName: 'serverless-pro-staging-bucket-' + Account.staging,
     },
     stateless: {
       lambdaMemorySize: 512,
@@ -58,7 +55,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: Region.virginia,
     },
     stateful: {
-      bucketName: "serverless-pro-prod-bucket-" + Account.prod,
+      bucketName: 'serverless-pro-prod-bucket-' + Account.prod,
     },
     stateless: {
       lambdaMemorySize: 1024,
@@ -71,7 +68,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: Region.virginia,
     },
     stateful: {
-      bucketName: "serverless-pro-cicd-bucket-" + Account.cicd,
+      bucketName: 'serverless-pro-cicd-bucket-' + Account.cicd,
     },
     stateless: {
       lambdaMemorySize: 1024,

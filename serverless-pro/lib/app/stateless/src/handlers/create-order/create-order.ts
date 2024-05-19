@@ -1,16 +1,16 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   DynamoDBDocumentClient,
   PutCommand,
   PutCommandInput,
-} from "@aws-sdk/lib-dynamodb";
+} from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayEvent,
   APIGatewayProxyHandler,
   APIGatewayProxyResult,
-} from "aws-lambda";
-import { v4 as uuid } from "uuid";
+} from 'aws-lambda';
+import { v4 as uuid } from 'uuid';
 
 type Order = {
   id: string;
@@ -32,21 +32,21 @@ export const handler: APIGatewayProxyHandler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const correlationId = uuid();
-    const method = "create-order.handler";
+    const method = 'create-order.handler';
     const prefix = `${correlationId} - ${method}`;
 
     console.log(`${prefix} - started`);
 
     if (!TableName) {
-      throw new Error("no table name supplied");
+      throw new Error('no table name supplied');
     }
 
     if (!Bucket) {
-      throw new Error("bucket name not supplied");
+      throw new Error('bucket name not supplied');
     }
 
     if (!event.body) {
-      throw new Error("no order supplied");
+      throw new Error('no order supplied');
     }
 
     // we take the body (payload) from the event coming through from api gateway

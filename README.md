@@ -375,3 +375,72 @@ The example application created in part 1 will be updated to add the additional 
 In part 2 we will be updating the application, focusing on Build, Test and Staging stages.
 
 ### Build Stage
+
+#### Code Quality
+
+> Run various automated static analysis tools that generate reports on code quality, coding standards, security, code coverage, and other aspects according to the team and/or organization’s best practices. AWS recommends that teams fail the build when important practices are violated (e.g., a security violation is discovered in the code). These checks usually run in seconds. Examples of tools to measure code quality include but are not limited to Amazon CodeGuru, SonarQube, black, and ESLint - [https://pipelines.devops.aws.dev/application-pipeline/index.html#build](https://pipelines.devops.aws.dev/application-pipeline/index.html#build)
+
+In this example, we will use eslint, tslint and prettier to ensure that we have code quality standards and a style guide.
+
+```sh
+npm install --save-dev \
+  prettier@2 \
+  eslint@8 \
+  @typescript-eslint/parser@5 \
+  @typescript-eslint/eslint-plugin@5 \
+  eslint-config-prettier@8 \
+  eslint-plugin-prettier@4
+```
+
+Create ESLint config file `.eslintrc`
+
+```json
+{
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "extends": [
+    "prettier",
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "plugins": ["prettier", "@typescript-eslint"],
+  "rules": {
+    "prettier/prettier": ["error"],
+    "@typescript-eslint/no-unused-vars": "error"
+  }
+}
+```
+
+Now we can add the following lint commands to the package.json scripts:
+
+```json
+{
+  "lint": "eslint --ext .ts .",
+  "lint:fix": "eslint --fix --ext .ts ."
+}
+```
+
+Now, add the `.prettierrc.json` and `.prettierignore` files
+
+```json
+{
+  "trailingComma": "es5",
+  "semi": true,
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2,
+  "bracketSpacing": true,
+  "arrowParens": "always"
+}
+```
+
+```
+# Ignore artifacts:
+build
+coverage
+cdk.out
+tsconfig.json
+```
