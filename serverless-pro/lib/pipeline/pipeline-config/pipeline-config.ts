@@ -24,7 +24,10 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || '128'),
     },
-    stageName: pascalCase(process.env.FEATURE || Stage.feature),
+    stageName: pascalCase(process.env.FEATURE || Stage.feature).replace(
+      /_/g,
+      '-'
+    ),
   },
   [Stage.dev]: {
     env: { account: Account.dev, region: Region.california },

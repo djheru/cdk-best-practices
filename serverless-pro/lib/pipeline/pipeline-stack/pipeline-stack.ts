@@ -33,6 +33,7 @@ export class PipelineStack extends cdk.Stack {
             'cd ./serverless-pro',
             'npm ci',
             'npx cdk synth',
+            'npm run lint',
             'npm run test',
           ],
         }),

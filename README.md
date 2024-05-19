@@ -450,7 +450,7 @@ tsconfig.json
 We will use [Husky](https://www.npmjs.com/package/husky) to automatically run these scripts on pre-commit.
 
 ```
-npm i --save-dev husky
+npm i --save-dev husky@8
 ```
 
 Now we can add the commands to the package.json scripts
@@ -463,9 +463,9 @@ Now we can add the commands to the package.json scripts
 }
 ```
 
-Now we can run `npm run prepare` to set up husky in the root of the project (outside of the `serverless-pro` application)
+Now we can run `npm run prepare` to set up husky in the root of the project (inside of the `serverless-pro` application directory)
 
-Then we can run the following (also from the root)
+Then we can run the following (run from the project root)
 
 ```
 npx husky add config/.husky/pre-commit "npm run precommit"
