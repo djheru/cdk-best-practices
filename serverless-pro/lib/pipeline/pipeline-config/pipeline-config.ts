@@ -1,5 +1,5 @@
+import { pascalCase } from "change-case";
 import * as dotenv from "dotenv";
-
 import {
   Account,
   EnvironmentConfig,
@@ -11,7 +11,7 @@ dotenv.config();
 
 export const environments: Record<Stage, EnvironmentConfig> = {
   // allow developers to spin up a quick branch for a given PR they are working on e.g. pr-124
-  // this is done with an npm run develop, not through the pipeline, and uses the values in .env
+  // this is done with an npm run dev, not through the pipeline, and uses the values in .env
   [Stage.feature]: {
     env: {
       account:
@@ -19,26 +19,25 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: process.env.REGION || (process.env.CDK_DEFAULT_REGION as string),
     },
     stateful: {
-      bucketName:
-        `serverless-pro-${process.env.PR_NUMBER}-bucket`.toLowerCase(),
+      bucketName: `serverless-pro-${process.env.FEATURE}-bucket`.toLowerCase(),
     },
     stateless: {
       lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || "128"),
     },
-    stageName: process.env.PR_NUMBER || Stage.develop,
+    stageName: pascalCase(process.env.FEATURE || Stage.feature),
   },
-  [Stage.develop]: {
+  [Stage.dev]: {
     env: {
-      account: Account.feature,
+      account: Account.dev,
       region: Region.california,
     },
     stateful: {
-      bucketName: "serverless-pro-feature-dev-bucket",
+      bucketName: "serverless-pro-feature-dev-bucket-" + Account.dev,
     },
     stateless: {
       lambdaMemorySize: 128,
     },
-    stageName: Stage.develop,
+    stageName: Stage.dev,
   },
   [Stage.staging]: {
     env: {
@@ -46,7 +45,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: Region.ohio,
     },
     stateful: {
-      bucketName: "serverless-pro-staging-bucket",
+      bucketName: "serverless-pro-staging-bucket-" + Account.staging,
     },
     stateless: {
       lambdaMemorySize: 512,
@@ -59,11 +58,24 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: Region.virginia,
     },
     stateful: {
-      bucketName: "serverless-pro-prod-bucket",
+      bucketName: "serverless-pro-prod-bucket-" + Account.prod,
     },
     stateless: {
       lambdaMemorySize: 1024,
     },
     stageName: Stage.prod,
+  },
+  [Stage.cicd]: {
+    env: {
+      account: Account.cicd,
+      region: Region.virginia,
+    },
+    stateful: {
+      bucketName: "serverless-pro-cicd-bucket-" + Account.cicd,
+    },
+    stateless: {
+      lambdaMemorySize: 1024,
+    },
+    stageName: Stage.cicd,
   },
 };

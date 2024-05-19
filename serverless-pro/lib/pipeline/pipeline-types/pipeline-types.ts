@@ -22,12 +22,14 @@ export const enum Stage {
   feature = "feature",
   staging = "staging",
   prod = "prod",
-  develop = "develop",
+  dev = "dev",
+  cicd = "cicd",
 }
 
 export const enum Account {
   feature = "11111111111",
   staging = "22222222222",
   prod = "33333333333",
-  develop = "44444444444",
+  dev = "44444444444",
+  cicd = "55555555555",
 }

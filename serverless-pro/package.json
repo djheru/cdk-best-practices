@@ -5,10 +5,15 @@
     "serverless-pro": "bin/serverless-pro.js"
   },
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
+    "synth": "cdk synth --all",
     "test": "jest",
-    "cdk": "cdk"
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "deploy:pipeline": "cdk deploy ServerlessPro ",
+    "remove:pipeline": "cdk destroy ServerlessPro ",
+    "deploy:feature": "cdk deploy ServerlessPro/FeatureIssue123/StatefulStack ServerlessPro/FeatureIssue123/StatefulStack",
+    "preremove:feature": "cdk synth ",
+    "remove:feature": "cdk destroy ServerlessPro/FeatureIssue123/StatefulStack ServerlessPro/FeatureIssue123/StatefulStack"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.138",

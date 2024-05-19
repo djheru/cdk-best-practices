@@ -1,6 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as pipelines from "aws-cdk-lib/pipelines";
-
+import { pascalCase } from "change-case";
 import { Construct } from "constructs";
 import { environments } from "../pipeline-config/pipeline-config";
 import { PipelineStage } from "../pipeline-stage/pipeline-stage";
@@ -24,7 +24,7 @@ export class PipelineStack extends cdk.Stack {
         pipelineName: "serverless-pro-pipeline",
         synth: new pipelines.ShellStep("Synth", {
           input: pipelines.CodePipelineSource.gitHub(
-            "leegilmorecode/Serverless-AWS-CDK-Best-Practices-Patterns",
+            "djheru/cdk-best-practices",
             "main"
           ),
           primaryOutputDirectory: "./serverless-pro/cdk.out", // these are our immutable build assets
@@ -39,22 +39,30 @@ export class PipelineStack extends cdk.Stack {
       }
     );
 
-    // add the develop stage on its own without being in the pipeline
+    // add the feature stage on its own without being in the pipeline
     // note: this is used purely for developer ephemeral environments
-    new PipelineStage(this, `Develop-${environments.develop.stageName}`, {
-      ...environments.develop,
-    });
+    new PipelineStage(
+      this,
+      pascalCase(`Feature-${environments.feature.stageName}`),
+      {
+        ...environments.feature,
+      }
+    );
 
-    // add the feature-dev stage with the relevant environment config to the pipeline
+    // add the development stage with the relevant environment config to the pipeline
     // this is the test stage (beta)
-    const featureStage: PipelineStage = new PipelineStage(this, "feature", {
-      ...environments.feature,
-    });
-    pipeline.addStage(featureStage, {
+    const developmentStage: PipelineStage = new PipelineStage(
+      this,
+      "Development",
+      {
+        ...environments.dev,
+      }
+    );
+    pipeline.addStage(developmentStage, {
       post: [
         new pipelines.ShellStep("HealthCheck", {
           envFromCfnOutputs: {
-            HEALTH_CHECK_ENDPOINT: featureStage.healthCheckUrl,
+            HEALTH_CHECK_ENDPOINT: developmentStage.healthCheckUrl,
           },
           commands: ["curl -Ssf $HEALTH_CHECK_ENDPOINT"], // demo only basic sanity check
         }),
@@ -78,7 +86,7 @@ export class PipelineStack extends cdk.Stack {
     });
 
     // add the prod stage with a manual approval step to the pipeline
-    const prodStage: PipelineStage = new PipelineStage(this, "Prod", {
+    const prodStage: PipelineStage = new PipelineStage(this, "Production", {
       ...environments.prod,
     });
     pipeline.addStage(prodStage, {
