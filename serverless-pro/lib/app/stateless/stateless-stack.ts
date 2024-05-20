@@ -1,10 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
-import { Aspects } from 'aws-cdk-lib';
+import { Aspects, CustomResource } from 'aws-cdk-lib';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodeLambda from 'aws-cdk-lib/aws-lambda-nodejs';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import { Provider } from 'aws-cdk-lib/custom-resources';
 import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import * as path from 'path';
@@ -23,6 +25,7 @@ export interface StatelessStackProps extends cdk.StackProps {
 export class StatelessStack extends cdk.Stack {
   public readonly apiEndpointUrl: cdk.CfnOutput;
   public readonly healthCheckUrl: cdk.CfnOutput;
+  private readonly ordersApi: apigw.RestApi;
 
   constructor(scope: Construct, id: string, props: StatelessStackProps) {
     super(scope, id, props);
@@ -30,7 +33,7 @@ export class StatelessStack extends cdk.Stack {
     const { table, bucket } = props;
 
     // create the rest api
-    const ordersApi: apigw.RestApi = new apigw.RestApi(this, 'Api', {
+    this.ordersApi = new apigw.RestApi(this, 'Api', {
       description: `Serverless Pro API ${props.stageName}`,
       deploy: true,
       endpointTypes: [apigw.EndpointType.REGIONAL],
@@ -42,9 +45,9 @@ export class StatelessStack extends cdk.Stack {
     });
 
     // create the rest api resources
-    const orders: apigw.Resource = ordersApi.root.addResource('orders');
+    const orders: apigw.Resource = this.ordersApi.root.addResource('orders');
     const healthCheck: apigw.Resource =
-      ordersApi.root.addResource('health-checks');
+      this.ordersApi.root.addResource('health-checks');
 
     const order: apigw.Resource = orders.addResource('{id}');
 
@@ -99,6 +102,21 @@ export class StatelessStack extends cdk.Stack {
         },
       });
 
+    const populateOrdersHandler: nodeLambda.NodejsFunction =
+      new nodeLambda.NodejsFunction(this, 'PopulateTableLambda', {
+        runtime: lambda.Runtime.NODEJS_16_X,
+        entry: path.join(
+          __dirname,
+          'src/handlers/populate-table-cr/populate-table-cr.ts'
+        ),
+        memorySize: props.lambdaMemorySize, // this is from props per env
+        handler: 'handler',
+        bundling: {
+          minify: true,
+          externalModules: ['aws-sdk'],
+        },
+      });
+
     // hook up the lambda functions to the api
     orders.addMethod(
       'POST',
@@ -121,22 +139,42 @@ export class StatelessStack extends cdk.Stack {
       })
     );
 
+    const provider: Provider = new Provider(
+      this,
+      'PopulateTableConfigCustomResource',
+      {
+        onEventHandler: populateOrdersHandler, // this lambda will be called on cfn deploy
+        logRetention: RetentionDays.ONE_DAY,
+        providerFunctionName: `populate-orders-${props.stageName}-cr-lambda`,
+      }
+    );
+
+    // use the custom resource provider
+    new CustomResource(this, 'DbTableConfigCustomResource', {
+      serviceToken: provider.serviceToken,
+      properties: {
+        tableName: props.table.tableName,
+      },
+    });
+
     // grant the relevant lambdas access to our dynamodb database
     table.grantReadData(getOrderLambda);
     table.grantWriteData(createOrderLambda);
+    table.grantWriteData(populateOrdersHandler);
 
     // grant the create order lambda access to the s3 bucket
     bucket.grantWrite(createOrderLambda);
 
     this.apiEndpointUrl = new cdk.CfnOutput(this, 'ApiEndpointOutput', {
-      value: ordersApi.url,
+      value: this.ordersApi.url,
       exportName: `api-endpoint-${props.stageName}`,
     });
 
     this.healthCheckUrl = new cdk.CfnOutput(this, 'healthCheckUrlOutput', {
-      value: `${ordersApi.url}health-checks`,
+      value: `${this.ordersApi.url}health-checks`,
       exportName: `healthcheck-endpoint-${props.stageName}`,
     });
+
     Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));
     NagSuppressions.addStackSuppressions(
       this,

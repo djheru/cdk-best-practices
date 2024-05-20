@@ -4,6 +4,7 @@ import {
   DynamoDBDocumentClient,
   PutCommand,
   PutCommandInput,
+  QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayEvent,
@@ -11,12 +12,7 @@ import {
   APIGatewayProxyResult,
 } from 'aws-lambda';
 import { v4 as uuid } from 'uuid';
-
-type Order = {
-  id: string;
-  quantity: number;
-  productId: string;
-};
+import { Order, Stores } from '../../types';
 
 const { TABLE_NAME: TableName, BUCKET_NAME: Bucket } = process.env;
 
@@ -59,6 +55,28 @@ export const handler: APIGatewayProxyHandler = async (
     };
 
     console.log(`${prefix} - order: ${JSON.stringify(order)}`);
+
+    const getParams = {
+      TableName,
+      IndexName: 'storeIndex',
+      KeyConditionExpression: '#type = :type',
+      ExpressionAttributeNames: {
+        '#type': 'type',
+      },
+      ExpressionAttributeValues: {
+        ':type': 'Stores',
+      },
+    };
+
+    const { Items: items } = await ddbDocClient.send(
+      new QueryCommand(getParams)
+    );
+    const stores = items as Stores;
+    console.log(stores);
+
+    if (!stores.find((item) => item.id === order.storeId)) {
+      throw new Error(`${order.storeId} is not found`);
+    }
 
     const params: PutCommandInput = {
       TableName,

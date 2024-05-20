@@ -508,4 +508,56 @@ NagSuppressions.addResourceSuppressions(this.bucket, [
     reason: `Rule suppression for 'The S3 Bucket has server access logs disabled'`,
   },
 ]);
+NagSuppressions.addResourceSuppressions(this.table, [
+  {
+    id: "AwsSolutions-DDB3",
+    reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
+  },
+]);
 ```
+
+---
+
+### Test Stage
+
+#### Database Deploy
+
+> Apply changes to the beta database using the Database Source Code. Changes should be made in a manner that ensures rollback safety. Best practice is to connect to the beta database through cross-account IAM roles and IAM database authentication for RDS rather than long lived database credentials. If database credentials must be used, then they should be loaded from a secret manager such as AWS Secrets Manager. Changes to the database should be incremental, only applying the changes since the prior deployment. Examples of tools that apply incremental database changes include but are not limited to Liquibase, VS Database Project, and Flyway. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#build](https://pipelines.devops.aws.dev/application-pipeline/index.html#build)
+
+Common Scenarios:
+
+1. Deploying Database Changes (e.g. new indexes, schema changes, populating data)
+2. Deploying test data to non-production environments for testing
+3. Deploying the base database configuration for the application
+
+We are going to look at the latter for adding some basic database configuration for our ‘store’ data config, and we are going to utilise Custom Resources to deploy into our environment which is detailed fully in the following article:
+
+**[Serverless Custom Resources](https://blog.serverlessadvocate.com/serverless-custom-resources-91c0aea2641a?source=post_page-----5446a417d232--------------------------------)**
+
+We add our custom resources to the stateless-stack.ts file as shown below which runs for all stages:
+
+```ts
+const provider: cr.Provider = new cr.Provider(
+  this,
+  "PopulateTableConfigCustomResource",
+  {
+    onEventHandler: populateOrdersHandler, // this lambda will be called on cfn deploy
+    logRetention: logs.RetentionDays.ONE_DAY,
+    providerFunctionName: `populate-orders-${props.stageName}-cr-lambda`,
+  }
+);
+
+// use the custom resource provider
+new CustomResource(this, "DbTableConfigCustomResource", {
+  serviceToken: provider.serviceToken,
+  properties: {
+    tableName: props.table.tableName,
+  },
+});
+```
+
+The custom resource above calls the lambda handler in ‘populate-table-cr.ts’ which performs a batch write to our DynamoDB table of the configuration data
+
+#### Integration Tests
+
+> Run automated tests that verify if the application satisifes business requirements. These tests require the application to be running in the beta environment. Integration tests may come in the form of behavior-driven tests, automated acceptance tests, or automated tests linked to requirements and/or stories in a tracking system. Test results should be published somewhere such as AWS CodeBuild Test Reports. Examples of tools to define integration tests include but are not limited to Cucumber, vRest, and SoapUI. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#build](https://pipelines.devops.aws.dev/application-pipeline/index.html#build)
