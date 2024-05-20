@@ -3,12 +3,12 @@
 exports[`pipeline-config should return the correct config for feature-dev 1`] = `
 {
   "env": {
-    "account": "44444444444",
+    "account": "190423078218",
     "region": "us-west-1",
   },
   "stageName": "dev",
   "stateful": {
-    "bucketName": "serverless-pro-feature-dev-bucket-44444444444",
+    "bucketName": "serverless-pro-feature-dev-bucket-190423078218",
   },
   "stateless": {
     "lambdaMemorySize": 128,
@@ -19,12 +19,12 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
 exports[`pipeline-config should return the correct config for prod 1`] = `
 {
   "env": {
-    "account": "33333333333",
+    "account": "276541279630",
     "region": "us-east-1",
   },
   "stageName": "prod",
   "stateful": {
-    "bucketName": "serverless-pro-prod-bucket-33333333333",
+    "bucketName": "serverless-pro-prod-bucket-276541279630",
   },
   "stateless": {
     "lambdaMemorySize": 1024,
@@ -35,12 +35,12 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
 exports[`pipeline-config should return the correct config for staging 1`] = `
 {
   "env": {
-    "account": "22222222222",
+    "account": "228708224037",
     "region": "us-east-2",
   },
   "stageName": "staging",
   "stateful": {
-    "bucketName": "serverless-pro-staging-bucket-22222222222",
+    "bucketName": "serverless-pro-staging-bucket-228708224037",
   },
   "stateless": {
     "lambdaMemorySize": 512,

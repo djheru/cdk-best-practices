@@ -67,6 +67,16 @@ export class PipelineStack extends cdk.Stack {
           },
           commands: ['curl -Ssf $HEALTH_CHECK_ENDPOINT'], // demo only basic sanity check
         }),
+        new pipelines.ShellStep('IntegrationTests', {
+          envFromCfnOutputs: {
+            API_ENDPOINT: developmentStage.apiEndpointUrl,
+          },
+          // we run the postman basic api integration tests
+          commands: [
+            'npm install -g newman',
+            'newman run ./tests/integration/integration-collection.json --env-var api-url=$API_ENDPOINT',
+          ],
+        }),
       ],
     });
 
@@ -82,6 +92,28 @@ export class PipelineStack extends cdk.Stack {
             HEALTH_CHECK_ENDPOINT: stagingStage.healthCheckUrl,
           },
           commands: ['curl -Ssf $HEALTH_CHECK_ENDPOINT'], // demo only basic sanity check
+        }),
+        // you can optionally run integration tests in staging (gamma) too
+        new pipelines.ShellStep('IntegrationTests', {
+          envFromCfnOutputs: {
+            API_ENDPOINT: stagingStage.apiEndpointUrl,
+          },
+          commands: [
+            'npm install -g newman',
+            'newman run ./tests/integration/integration-collection.json --env-var api-url=$API_ENDPOINT',
+          ],
+        }),
+        // you can optionally run load tests in staging (gamma) too
+        new pipelines.ShellStep('LoadTests', {
+          envFromCfnOutputs: {
+            API_ENDPOINT: stagingStage.apiEndpointUrl,
+          },
+          // we run the artillery load tests
+          commands: [
+            'npm install -g artillery',
+            'artillery dino', // ensure that it is installed correctly
+            'artillery run -e load ./tests/load/load.yml',
+          ],
         }),
       ],
     });

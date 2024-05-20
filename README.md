@@ -561,3 +561,113 @@ The custom resource above calls the lambda handler in ‘populate-table-cr.ts’
 #### Integration Tests
 
 > Run automated tests that verify if the application satisifes business requirements. These tests require the application to be running in the beta environment. Integration tests may come in the form of behavior-driven tests, automated acceptance tests, or automated tests linked to requirements and/or stories in a tracking system. Test results should be published somewhere such as AWS CodeBuild Test Reports. Examples of tools to define integration tests include but are not limited to Cucumber, vRest, and SoapUI. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#build](https://pipelines.devops.aws.dev/application-pipeline/index.html#build)
+
+We are going to be using Newman and a Postman collection to run the integration tests agains our API ([https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman](https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman)). First, we add a shell step to our pipeline stage for development and staging as shown:
+
+```ts
+
+  new pipelines.ShellStep('IntegrationTests', {
+    envFromCfnOutputs: {
+      API_ENDPOINT: developmentStage.apiEndpointUrl,
+    },
+    // we run the postman basic api integration tests
+    commands: [
+      'npm install -g newman',
+      'newman run ./tests/integration/integration-collection.json --env-var api-url=$API_ENDPOINT',
+    ],
+  }),
+```
+
+This means we will install Newman, then we'll run a Postman collection suite of tests, whilst passing through the API endpoint as an env var.
+
+The Postman tests are all defined in `./tests/integration/integration-collection.json`. The suite is made up of two tests that run in sequence; `create-order`, which hits the POST endpoint with the following payload:
+
+```json
+{
+  "quantity": 1,
+  "productId": "lee-123-123",
+  "storeId": "59b8a675-9bb7-46c7-955d-2566edfba8ea"
+}
+```
+
+The script included in the `exec` block of the event gets the response and checks for the expected field values. We also set the ID of the created order as an environment variable to be referenced in the next test, `get-order`
+
+#### Performance Tests
+
+> Run longer-running automated capacity tests against environments that simulate production capacity. Measure metrics such as the transaction success rates, response time and throughput. Determine if application meets performance requirements and compare metrics to past performance to look for performance degredation. Examples of tools that can be used for performance tests include but are not limited to JMeter, Locust, and Gatling. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#build](https://pipelines.devops.aws.dev/application-pipeline/index.html#build)
+
+We will use [Artillery](https://www.artillery.io/). We have the load tests in the `./tests/load/load.yml` file. We add a shell step in the staging env:
+
+```ts
+  // you can optionally run load tests in staging (gamma) too
+  new pipelines.ShellStep('LoadTests', {
+    envFromCfnOutputs: {
+      API_ENDPOINT: stagingStage.apiEndpointUrl,
+    },
+    // we run the artillery load tests
+    commands: [
+      'npm install -g artillery',
+      'artillery dino', // ensure that it is installed correctly
+      'artillery run -e load ./tests/load/load.yml',
+    ],
+  }),
+```
+
+As you can see from the code snippet above, we install artillery and then perform a load test run based on our load.yml file. This means that if our load test fails in our Staging environment we will fail the pipeline and rollback
+
+In our `load.yml` file we perform two calls (in a similar manner to our integration tests); however, we do this over a period of time with multiple virtual users:
+
+```yml
+load:
+  target: "{{ $processEnvironment.API_ENDPOINT }}"
+  phases:
+    - duration: 20
+      arrivalRate: 1
+      maxVusers: 1
+```
+
+> In our basic example, we run for 20 seconds, starting with one virtual user, and only scaling to one. You can change your tests for your needs accordingly, for example, by simulating hundreds of virtual users.
+
+We then check in the same file that our p95 and p99 response times are within suitable boundaries, and if not, we fail the pipeline:
+
+```yml
+ensure:
+  thresholds:
+    - http.response_time.p95: 1000
+  conditions:
+    - expression: http.response_time.p99 < 500
+      strict: true
+    - expression: http.response_time.p95 < 1000
+      strict: true
+  maxErrorRate: 0 # no percentage of error rate i.e. no errors or pipeline fails
+```
+
+We pass through our load test data from a CSV file found in `./tests/load/data/data.csv` using the configuration in the `load.yml` file:
+
+```yml
+payload:
+  path: "./data/data.csv" # pull in the order data csv
+```
+
+The full load.yml file for the load testing has some assertions on the requests themselves too (such as ensuring the correct values are returned in the responses)
+
+For a more in-depth video of load testing with Artillery, you can watch the following:
+
+[Load testing with Artillery - https://youtu.be/8pckaEKKvgI](https://youtu.be/8pckaEKKvgI)
+
+---
+
+### Production Stage
+
+#### Manual Approval
+
+One neat thing we can do with CDK Pipelines is to add a manual approval stage before our production deployment, meaning that somebody needs to verify that they are happy before the deployment takes place. Of course, our defacto standard would be continuous deployment, but there are times when you need these manual gates.
+
+This is set up very easily in our CDK code by adding the following:
+
+```ts
+pipeline.addStage(prodStage, {
+  pre: [
+    new pipelines.ManualApprovalStep('PromoteToProd'), // manual approval step
+  ],
+```
