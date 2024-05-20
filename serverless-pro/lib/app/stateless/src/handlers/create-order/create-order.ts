@@ -49,9 +49,11 @@ export const handler: APIGatewayProxyHandler = async (
     const item = JSON.parse(event.body);
 
     // we wont validate the input with this being a basic example only
+    const createdDateTime = new Date().toISOString();
     const order: Order = {
       id: uuid(),
       type: 'Orders',
+      created: createdDateTime,
       ...item,
     };
 
