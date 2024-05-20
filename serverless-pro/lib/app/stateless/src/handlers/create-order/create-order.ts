@@ -51,6 +51,7 @@ export const handler: APIGatewayProxyHandler = async (
     // we wont validate the input with this being a basic example only
     const order: Order = {
       id: uuid(),
+      type: 'Orders',
       ...item,
     };
 

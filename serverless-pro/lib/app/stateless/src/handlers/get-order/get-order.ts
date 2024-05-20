@@ -1,4 +1,5 @@
-import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayEvent,
   APIGatewayProxyHandler,
@@ -7,7 +8,10 @@ import {
 import { v4 as uuid } from 'uuid';
 
 const { TABLE_NAME: TableName } = process.env;
-const client = new DynamoDBClient({});
+const dynamodbClient = new DynamoDBClient({});
+const ddbDocClient = DynamoDBDocumentClient.from(dynamodbClient, {
+  marshallOptions: { removeUndefinedValues: true },
+});
 
 export const handler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
@@ -32,21 +36,20 @@ export const handler: APIGatewayProxyHandler = async (
     const params = {
       TableName,
       Key: {
-        id: { S: id },
+        id,
       },
     };
 
-    const command = new GetItemCommand(params);
+    const command = new GetCommand(params);
 
     console.log(`${prefix} - get order: ${id}`);
 
-    const data = await client.send(command);
-    const item = data.Item;
+    const { Item: item } = await ddbDocClient.send(command);
 
     // api gateway needs us to return this body (stringified) and the status code
     return {
       statusCode: 200,
-      body: JSON.stringify(item),
+      body: JSON.stringify(item || {}),
     };
   } catch (error) {
     console.error(error);
