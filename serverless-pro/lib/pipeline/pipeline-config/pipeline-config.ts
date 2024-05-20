@@ -30,7 +30,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     ),
   },
   [Stage.dev]: {
-    env: { account: Account.dev, region: Region.california },
+    env: { account: Account.dev, region: Region.virginia },
     stateful: {
       bucketName: 'serverless-pro-feature-dev-bucket-' + Account.dev,
     },
@@ -42,7 +42,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
   [Stage.staging]: {
     env: {
       account: Account.staging,
-      region: Region.ohio,
+      region: Region.virginia,
     },
     stateful: {
       bucketName: 'serverless-pro-staging-bucket-' + Account.staging,
