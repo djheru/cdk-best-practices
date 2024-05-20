@@ -1,12 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
+import { Aspects } from 'aws-cdk-lib';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodeLambda from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
+import { Construct } from 'constructs';
 import * as path from 'path';
 
-import { Construct } from 'constructs';
 
 export interface StatelessStackProps extends cdk.StackProps {
   env: {
@@ -22,12 +24,12 @@ export interface StatelessStackProps extends cdk.StackProps {
 export class StatelessStack extends cdk.Stack {
   public readonly apiEndpointUrl: cdk.CfnOutput;
   public readonly healthCheckUrl: cdk.CfnOutput;
-
+  
   constructor(scope: Construct, id: string, props: StatelessStackProps) {
     super(scope, id, props);
-
+    
     const { table, bucket } = props;
-
+    
     // create the rest api
     const ordersApi: apigw.RestApi = new apigw.RestApi(this, 'Api', {
       description: `Serverless Pro API ${props.stageName}`,
@@ -39,65 +41,65 @@ export class StatelessStack extends cdk.Stack {
         loggingLevel: apigw.MethodLoggingLevel.INFO,
       },
     });
-
+    
     // create the rest api resources
     const orders: apigw.Resource = ordersApi.root.addResource('orders');
     const healthCheck: apigw.Resource =
-      ordersApi.root.addResource('health-checks');
-
+    ordersApi.root.addResource('health-checks');
+    
     const order: apigw.Resource = orders.addResource('{id}');
-
+    
     // create the lambdas
     const createOrderLambda: nodeLambda.NodejsFunction =
-      new nodeLambda.NodejsFunction(this, 'CreateOrderLambda', {
-        runtime: lambda.Runtime.NODEJS_16_X,
-        entry: path.join(
-          __dirname,
-          'src/handlers/create-order/create-order.ts'
-        ),
-        memorySize: props.lambdaMemorySize, // this is passed through per env from config
-        handler: 'handler',
-        bundling: {
-          minify: true,
-          externalModules: ['aws-sdk'],
-        },
-        environment: {
-          TABLE_NAME: table.tableName,
-          BUCKET_NAME: bucket.bucketName,
-        },
-      });
-
+    new nodeLambda.NodejsFunction(this, 'CreateOrderLambda', {
+      runtime: lambda.Runtime.NODEJS_16_X,
+      entry: path.join(
+        __dirname,
+        'src/handlers/create-order/create-order.ts'
+      ),
+      memorySize: props.lambdaMemorySize, // this is passed through per env from config
+      handler: 'handler',
+      bundling: {
+        minify: true,
+        externalModules: ['aws-sdk'],
+      },
+      environment: {
+        TABLE_NAME: table.tableName,
+        BUCKET_NAME: bucket.bucketName,
+      },
+    });
+    
     const getOrderLambda: nodeLambda.NodejsFunction =
-      new nodeLambda.NodejsFunction(this, 'GetOrderLambda', {
-        runtime: lambda.Runtime.NODEJS_16_X,
-        entry: path.join(__dirname, 'src/handlers/get-order/get-order.ts'),
-        memorySize: props.lambdaMemorySize, // this is passed through per env from config
-        handler: 'handler',
-        bundling: {
-          minify: true,
-          externalModules: ['aws-sdk'],
-        },
-        environment: {
-          TABLE_NAME: table.tableName,
-          BUCKET_NAME: bucket.bucketName,
-        },
-      });
-
+    new nodeLambda.NodejsFunction(this, 'GetOrderLambda', {
+      runtime: lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, 'src/handlers/get-order/get-order.ts'),
+      memorySize: props.lambdaMemorySize, // this is passed through per env from config
+      handler: 'handler',
+      bundling: {
+        minify: true,
+        externalModules: ['aws-sdk'],
+      },
+      environment: {
+        TABLE_NAME: table.tableName,
+        BUCKET_NAME: bucket.bucketName,
+      },
+    });
+    
     const healthCheckLambda: nodeLambda.NodejsFunction =
-      new nodeLambda.NodejsFunction(this, 'HealthCheckLambda', {
-        runtime: lambda.Runtime.NODEJS_16_X,
-        entry: path.join(
-          __dirname,
-          'src/handlers/health-check/health-check.ts'
-        ),
-        memorySize: props.lambdaMemorySize, // this is passed through per env from config
-        handler: 'handler',
-        bundling: {
-          minify: true,
-          externalModules: ['aws-sdk'],
-        },
-      });
-
+    new nodeLambda.NodejsFunction(this, 'HealthCheckLambda', {
+      runtime: lambda.Runtime.NODEJS_16_X,
+      entry: path.join(
+        __dirname,
+        'src/handlers/health-check/health-check.ts'
+      ),
+      memorySize: props.lambdaMemorySize, // this is passed through per env from config
+      handler: 'handler',
+      bundling: {
+        minify: true,
+        externalModules: ['aws-sdk'],
+      },
+    });
+    
     // hook up the lambda functions to the api
     orders.addMethod(
       'POST',
@@ -105,36 +107,75 @@ export class StatelessStack extends cdk.Stack {
         proxy: true,
       })
     );
-
+    
     order.addMethod(
       'GET',
       new apigw.LambdaIntegration(getOrderLambda, {
         proxy: true,
       })
     );
-
+    
     healthCheck.addMethod(
       'GET',
       new apigw.LambdaIntegration(healthCheckLambda, {
         proxy: true,
       })
     );
-
+    
     // grant the relevant lambdas access to our dynamodb database
     table.grantReadData(getOrderLambda);
     table.grantWriteData(createOrderLambda);
-
+    
     // grant the create order lambda access to the s3 bucket
     bucket.grantWrite(createOrderLambda);
-
+    
     this.apiEndpointUrl = new cdk.CfnOutput(this, 'ApiEndpointOutput', {
       value: ordersApi.url,
       exportName: `api-endpoint-${props.stageName}`,
     });
-
+    
     this.healthCheckUrl = new cdk.CfnOutput(this, 'healthCheckUrlOutput', {
       value: `${ordersApi.url}health-checks`,
       exportName: `healthcheck-endpoint-${props.stageName}`,
     });
+    Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));
+    NagSuppressions.addStackSuppressions(
+      this,
+      [
+        {
+          id: 'AwsSolutions-COG4',
+          reason: `Rule suppression for 'The REST API stage is not associated with AWS WAFv2 web ACL'`,
+        },
+        {
+          id: 'AwsSolutions-APIG3',
+          reason: `Rule suppression for 'The REST API stage is not associated with AWS WAFv2 web ACL'`,
+        },
+        {
+          id: 'AwsSolutions-APIG2',
+          reason: `Rule suppression for 'The REST API does not have request validation enabled'`,
+        },
+        {
+          id: 'AwsSolutions-IAM4',
+          reason: `Rule suppression for 'The IAM user, role, or group uses AWS managed policies'`,
+        },
+        {
+          id: 'AwsSolutions-APIG4',
+          reason: `Rule suppression for 'The API does not implement authorization.'`,
+        },
+        {
+          id: 'AwsSolutions-APIG1',
+          reason: `Rule suppression for 'The API does not have access logging enabled'`,
+        },
+        {
+          id: 'AwsSolutions-L1',
+          reason: `Rule suppression for 'The non-container Lambda function is not configured to use the latest runtime version'`,
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          reason: `Rule suppression for 'The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission'`,
+        },
+      ],
+      true
+    );
   }
 }

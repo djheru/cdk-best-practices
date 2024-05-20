@@ -1,9 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
+import { Aspects, RemovalPolicy } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-
+import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
-import { RemovalPolicy } from 'aws-cdk-lib';
 
 export interface StatefulStackProps extends cdk.StackProps {
   bucketName: string;
@@ -12,15 +12,15 @@ export interface StatefulStackProps extends cdk.StackProps {
 export class StatefulStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
   public readonly table: dynamodb.Table;
-
+  
   constructor(scope: Construct, id: string, props: StatefulStackProps) {
     super(scope, id, props);
-
+    
     // create the s3 bucket for invoices
     this.bucket = new s3.Bucket(this, 'Bucket', {
       bucketName: props.bucketName, // this is passed through per env from config
     });
-
+    
     // create the dynamodb table
     this.table = new dynamodb.Table(this, 'Table', {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -33,5 +33,30 @@ export class StatefulStack extends cdk.Stack {
         type: dynamodb.AttributeType.STRING,
       },
     });
+    Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));
+    NagSuppressions.addResourceSuppressions(this.bucket, [
+      {
+        id: 'AwsSolutions-S1',
+        reason: `Rule suppression for 'The S3 Bucket has server access logs disabled'`,
+      },
+      {
+        id: 'AwsSolutions-S2',
+        reason: `Rule suppression for 'The S3 Bucket does not have public access restricted and blocked. The bucket should have public access restricted and blocked to prevent unauthorized access'`,
+      },
+      {
+        id: 'AwsSolutions-S10',
+        reason: `Rule suppression for 'The S3 Bucket or bucket policy does not require requests to use SSL'`,
+      },
+      {
+        id: 'AwsSolutions-DDB3',
+        reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
+      },
+    ]);
+    NagSuppressions.addResourceSuppressions(this.table, [
+      {
+        id: 'AwsSolutions-DDB3',
+        reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
+      },
+    ]);
   }
 }

@@ -472,3 +472,40 @@ npx husky add config/.husky/pre-commit "npm run precommit"
 
 npx husky add config/.husky/pre-push "npm run prepush"
 ```
+
+Now when you go to commit or push, the husky hooks will run and prevent you from sending code that does not meet standards
+
+#### SAST - Static application security testing with cdk-nag
+
+> Static application security testing (SAST) is a set of technologies designed to analyze application source code, byte code and binaries for coding and design conditions that are indicative of security vulnerabilities. SAST solutions analyze an application from the “inside out” in a nonrunning state. - [https://www.gartner.com/en/information-technology/glossary/static-application-security-testing-sast](https://www.gartner.com/en/information-technology/glossary/static-application-security-testing-sast)
+
+We can use the `cdk-nag` npm package to accomplish this. The tool will validate our CDK code against a set of industry-recognized compliance NagPacks such as
+
+1. [AWS Solutions](https://github.com/cdklabs/cdk-nag/blob/main/RULES.md#awssolutions)
+2. [HIPAA Security](https://github.com/cdklabs/cdk-nag/blob/main/RULES.md#hipaa-security)
+3. [NIST 800-53 rev 4](https://github.com/cdklabs/cdk-nag/blob/main/RULES.md#nist-800-53-rev-4)
+4. [NIST 800-53 rev 5](https://github.com/cdklabs/cdk-nag/blob/main/RULES.md#nist-800-53-rev-5)
+5. [PCI DSS 3.2.1](https://github.com/cdklabs/cdk-nag/blob/main/RULES.md#pci-dss-321)
+
+> Infrastructure as Code (IaC) is an important part of Cloud Applications. Developers rely on various Static Application Security Testing (SAST) tools to identify security/compliance issues and mitigate these issues early on, before releasing their applications to production. Additionally, SAST tools often provide reporting mechanisms that can help developers verify compliance during security reviews. - [https://aws.amazon.com/blogs/devops/manage-application-security-and-compliance-with-the-aws-cloud-development-kit-and-cdk-nag/](https://aws.amazon.com/blogs/devops/manage-application-security-and-compliance-with-the-aws-cloud-development-kit-and-cdk-nag/)
+
+We can implement this in our application by installing the package using `npm i cdk-nag` and then adding the following code to the `stateful-stack.ts` and `stateless-stack.ts`:
+
+```
+import { Aspects } from 'aws-cdk-lib';
+import { AwsSolutionsChecks } from 'cdk-nag';
+import { NagSuppressions } from 'cdk-nag';
+
+Aspects.of(this).add(new AwsSolutionsChecks({ verbose: false }));
+```
+
+If certain nag rules are triggered, they can be suppressed by adding `NagSuppression` entries such as:
+
+```js
+NagSuppressions.addResourceSuppressions(this.bucket, [
+  {
+    id: "AwsSolutions-S1",
+    reason: `Rule suppression for 'The S3 Bucket has server access logs disabled'`,
+  },
+]);
+```
