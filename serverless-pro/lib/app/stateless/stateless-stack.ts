@@ -159,7 +159,7 @@ export class StatelessStack extends cdk.Stack {
 
     // grant the relevant lambdas access to our dynamodb database
     table.grantReadData(getOrderLambda);
-    table.grantWriteData(createOrderLambda);
+    table.grantReadWriteData(createOrderLambda);
     table.grantWriteData(populateOrdersHandler);
 
     // grant the create order lambda access to the s3 bucket
