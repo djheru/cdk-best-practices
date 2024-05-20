@@ -23,9 +23,12 @@ export class PipelineStack extends cdk.Stack {
         selfMutation: true,
         pipelineName: 'serverless-pro-pipeline',
         synth: new pipelines.ShellStep('Synth', {
-          input: pipelines.CodePipelineSource.gitHub(
+          input: pipelines.CodePipelineSource.connection(
             'djheru/cdk-best-practices',
-            'main'
+            'main',
+            {
+              connectionArn: `${environments.cicd.codestarConnectionArn}`,
+            }
           ),
           primaryOutputDirectory: './serverless-pro/cdk.out', // these are our immutable build assets
           // source stage

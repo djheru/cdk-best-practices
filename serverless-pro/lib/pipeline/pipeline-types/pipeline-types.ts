@@ -1,4 +1,5 @@
 export interface EnvironmentConfig {
+  codestarConnectionArn?: string;
   env: {
     account: string;
     region: string;

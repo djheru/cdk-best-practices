@@ -9,6 +9,10 @@ import {
 
 dotenv.config();
 
+if (!process.env.CODESTAR_CONNECTION_ARN) {
+  throw new Error('CODESTAR_CONNECTION_ARN must be set in the .env file');
+}
+
 export const environments: Record<Stage, EnvironmentConfig> = {
   // allow developers to spin up a quick branch for a given PR they are working on e.g. pr-124
   // this is done with an npm run dev, not through the pipeline, and uses the values in .env
@@ -66,6 +70,8 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stageName: Stage.prod,
   },
   [Stage.cicd]: {
+    codestarConnectionArn:
+      (process.env.CODESTAR_CONNECTION_ARN as string) || '',
     env: {
       account: Account.cicd,
       region: Region.virginia,
