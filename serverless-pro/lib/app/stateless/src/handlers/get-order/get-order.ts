@@ -6,6 +6,7 @@ import {
   APIGatewayProxyResult,
 } from 'aws-lambda';
 import { v4 as uuid } from 'uuid';
+import { Order } from '../../types';
 
 const { TABLE_NAME: TableName } = process.env;
 const dynamodbClient = new DynamoDBClient({});
@@ -46,10 +47,20 @@ export const handler: APIGatewayProxyHandler = async (
 
     const { Item: item } = await ddbDocClient.send(command);
 
+    if (!item) throw new Error(`order id ${id} is not found`);
+
+    const order: Order = {
+      id: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      storeId: item.storeId,
+      created: item.created,
+      type: item.type,
+    };
     // api gateway needs us to return this body (stringified) and the status code
     return {
       statusCode: 200,
-      body: JSON.stringify(item || {}),
+      body: JSON.stringify(order || {}),
     };
   } catch (error) {
     console.error(error);
