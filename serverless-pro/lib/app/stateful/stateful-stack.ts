@@ -12,15 +12,15 @@ export interface StatefulStackProps extends cdk.StackProps {
 export class StatefulStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
   public readonly table: dynamodb.Table;
-  
+
   constructor(scope: Construct, id: string, props: StatefulStackProps) {
     super(scope, id, props);
-    
+
     // create the s3 bucket for invoices
     this.bucket = new s3.Bucket(this, 'Bucket', {
       bucketName: props.bucketName, // this is passed through per env from config
     });
-    
+
     // create the dynamodb table
     this.table = new dynamodb.Table(this, 'Table', {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
