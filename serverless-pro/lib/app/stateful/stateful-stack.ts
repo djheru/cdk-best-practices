@@ -49,11 +49,11 @@ export class StatefulStack extends cdk.Stack {
 
     // add the global secondary index which allows us to query
     // all stores based on the record type
-    this.table.addGlobalSecondaryIndex({
-      indexName: 'recordTypeIndex',
-      partitionKey: { name: 'type', type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
+    // this.table.addGlobalSecondaryIndex({
+    //   indexName: 'recordTypeIndex',
+    //   partitionKey: { name: 'type', type: dynamodb.AttributeType.STRING },
+    //   projectionType: dynamodb.ProjectionType.ALL,
+    // });
 
     Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));
     NagSuppressions.addResourceSuppressions(
