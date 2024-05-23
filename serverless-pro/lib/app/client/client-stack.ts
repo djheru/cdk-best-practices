@@ -99,8 +99,6 @@ export class ClientStack extends cdk.Stack {
     cloudFrontDistribution.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     // Setup Bucket Deployment to automatically deploy new assets and invalidate cache
-    console.log('Dirname: ', __dirname);
-    console.log(path.join(__dirname, '../../../../client/build'));
     new s3deploy.BucketDeployment(this, 'ClientBucketDeployment', {
       sources: [
         s3deploy.Source.asset(path.join(__dirname, '../../../../client/build')),

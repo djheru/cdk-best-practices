@@ -393,6 +393,8 @@ export class StatelessStack extends cdk.Stack {
         })
       );
 
+      console.log(__dirname);
+      console.log(path.join(__dirname, './src/canaries/api-canary'));
       const apiCanary: Canary = new Canary(this, 'APICanary', {
         canaryName: `${props.stageName}-api-canary`,
         role: canaryRole,
