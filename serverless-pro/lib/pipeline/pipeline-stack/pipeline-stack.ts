@@ -55,6 +55,7 @@ export class PipelineStack extends cdk.Stack {
             // build the pipeline and apps
             'cd ../serverless-pro/',
             'npm ci',
+            'pwd',
             'npx cdk synth',
             'npm run lint',
             'npm run test',
