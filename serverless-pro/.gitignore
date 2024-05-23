@@ -1,9 +1,9 @@
 *.js
 !jest.config.js
 *.d.ts
+!lib/app/stateless/src/canaries/api-canary/nodejs/node_modules/
+!lib/app/stateless/src/canaries/visual-canary/nodejs/node_modules/
 node_modules
-!lib/app/stateless/src/canaries/api-canary/nodejs/node_modules
-!lib/app/stateless/src/canaries/visual-canary/nodejs/node_modules
 
 
 # CDK asset staging directory
