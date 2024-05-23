@@ -181,7 +181,6 @@ export class StatelessStack extends cdk.Stack {
         handler: 'handler',
         bundling: {
           minify: true,
-          externalModules: ['aws-sdk'],
         },
         environment: {
           TABLE_NAME: table.tableName,
@@ -200,7 +199,6 @@ export class StatelessStack extends cdk.Stack {
         handler: 'handler',
         bundling: {
           minify: true,
-          externalModules: ['aws-sdk'],
         },
         environment: {
           TABLE_NAME: table.tableName,
@@ -219,7 +217,6 @@ export class StatelessStack extends cdk.Stack {
         handler: 'handler',
         bundling: {
           minify: true,
-          externalModules: ['aws-sdk'],
         },
         environment: {
           TABLE_NAME: table.tableName,
@@ -240,7 +237,6 @@ export class StatelessStack extends cdk.Stack {
         handler: 'handler',
         bundling: {
           minify: true,
-          externalModules: ['aws-sdk'],
         },
       }
     );
@@ -258,7 +254,6 @@ export class StatelessStack extends cdk.Stack {
         handler: 'handler',
         bundling: {
           minify: true,
-          externalModules: ['aws-sdk'],
         },
       }
     );
