@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayEvent,
   APIGatewayProxyHandler,
@@ -9,6 +9,7 @@ import { v4 as uuid } from 'uuid';
 import { Order } from '../../types';
 
 const { TABLE_NAME: TableName } = process.env;
+
 const dynamodbClient = new DynamoDBClient({});
 const ddbDocClient = DynamoDBDocumentClient.from(dynamodbClient, {
   marshallOptions: { removeUndefinedValues: true },
@@ -18,9 +19,10 @@ export const handler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('event: %j', event);
     const correlationId = uuid();
-    const method = 'get-order.handler';
-    const prefix = `${correlationId} - ${method}`;
+    const method = 'list-orders.handler';
+    const prefix = `${correlationId} (v2) - ${method}`;
 
     if (!process.env.TABLE_NAME) {
       throw new Error('no table name supplied');
@@ -28,39 +30,41 @@ export const handler: APIGatewayProxyHandler = async (
 
     console.log(`${prefix} - started`);
 
-    if (!event?.pathParameters || !event.pathParameters.id)
-      throw new Error('no id in the path parameters of the event');
+    if (!TableName) {
+      throw new Error('no table name supplied');
+    }
 
-    // we get the specific order id from the path parameters in the event from api gateway
-    const { id } = event.pathParameters;
-
-    const params = {
+    const getParams = {
       TableName,
-      Key: {
-        id,
+      IndexName: 'recordTypeIndex',
+      KeyConditionExpression: '#type = :type',
+      ExpressionAttributeNames: {
+        '#type': 'type',
+      },
+      ExpressionAttributeValues: {
+        ':type': 'Orders',
       },
     };
 
-    const command = new GetCommand(params);
+    const { Items } = await ddbDocClient.send(new QueryCommand(getParams));
 
-    console.log(`${prefix} - get order: ${id}`);
+    const orders: Order[] = !Items
+      ? []
+      : Items?.map((item) => {
+          return {
+            id: item.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            storeId: item.storeId,
+            created: item.created,
+            type: item.type,
+          };
+        });
 
-    const { Item: item } = await ddbDocClient.send(command);
-
-    if (!item) throw new Error(`order id ${id} is not found`);
-
-    const order: Order = {
-      id: item.id,
-      productId: item.productId,
-      quantity: item.quantity,
-      storeId: item.storeId,
-      created: item.created,
-      type: item.type,
-    };
     // api gateway needs us to return this body (stringified) and the status code
     return {
       statusCode: 200,
-      body: JSON.stringify(order || {}),
+      body: JSON.stringify(orders),
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Headers': 'Content-Type',

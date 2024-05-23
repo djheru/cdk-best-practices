@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "target": "ES2020",
+    "types": ["node"],
     "module": "commonjs",
-    "lib": ["es2020", "dom"],
+    "lib": ["es2020"],
     "declaration": true,
     "strict": true,
     "noImplicitAny": true,
@@ -17,7 +19,18 @@
     "inlineSources": true,
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
-    "typeRoots": ["./node_modules/@types"]
+    "typeRoots": ["./node_modules/@types"],
+    "moduleResolution": "node"
   },
-  "exclude": ["node_modules", "cdk.out"]
+  "include": ["./lib/**/*ts"],
+  "exclude": [
+    "node_modules",
+    "../client/node_modules",
+    "cdk.out",
+    "../client/cypress.config.ts",
+    "../client/cypress",
+    "../client",
+    "**/*.cy.tsx"
+  ],
+  "files": ["../client/cypress.config.ts"]
 }

@@ -27,6 +27,7 @@ export const handler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('event: %j', event);
     const correlationId = uuid();
     const method = 'create-order.handler';
     const prefix = `${correlationId} - ${method}`;
@@ -61,7 +62,7 @@ export const handler: APIGatewayProxyHandler = async (
 
     const getParams = {
       TableName,
-      IndexName: 'storeIndex',
+      IndexName: 'recordTypeIndex',
       KeyConditionExpression: '#type = :type',
       ExpressionAttributeNames: {
         '#type': 'type',
@@ -103,10 +104,17 @@ export const handler: APIGatewayProxyHandler = async (
 
     console.log(`${prefix} - invoice written to ${Bucket}`);
 
-    // api gateway needs us to return this body (stringified) and the status code
+    // api gateway needs us to return this body (stringified) and the status code plus CORS headers
     return {
       body: JSON.stringify(order),
       statusCode: 201,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+        'Access-Control-Allow-Credentials': true,
+      },
     };
   } catch (error) {
     console.error(error);

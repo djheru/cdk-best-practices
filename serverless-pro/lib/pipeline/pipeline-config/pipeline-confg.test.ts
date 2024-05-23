@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { environments } from './pipeline-config';
 
 // the config is deterministic so we can test this in our code

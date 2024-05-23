@@ -6,10 +6,12 @@ import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
 export interface StatefulStackProps extends cdk.StackProps {
+  assetsBucketName: string;
   bucketName: string;
 }
 
 export class StatefulStack extends cdk.Stack {
+  public readonly assetsBucket: s3.Bucket;
   public readonly bucket: s3.Bucket;
   public readonly table: dynamodb.Table;
 
@@ -19,6 +21,17 @@ export class StatefulStack extends cdk.Stack {
     // create the s3 bucket for invoices
     this.bucket = new s3.Bucket(this, 'Bucket', {
       bucketName: props.bucketName, // this is passed through per env from config
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    // create the bucket for the canary outputs
+    this.assetsBucket = new s3.Bucket(this, 'CanaryAssetsBucket', {
+      bucketName: props.assetsBucketName,
+      versioned: false,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
     });
 
     // create the dynamodb table
@@ -37,35 +50,37 @@ export class StatefulStack extends cdk.Stack {
     // add the global secondary index which allows us to query
     // all stores based on the record type
     this.table.addGlobalSecondaryIndex({
-      indexName: 'storeIndex',
+      indexName: 'recordTypeIndex',
       partitionKey: { name: 'type', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
     Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));
-    NagSuppressions.addResourceSuppressions(this.bucket, [
-      {
-        id: 'AwsSolutions-S1',
-        reason: `Rule suppression for 'The S3 Bucket has server access logs disabled'`,
-      },
-      {
-        id: 'AwsSolutions-S2',
-        reason: `Rule suppression for 'The S3 Bucket does not have public access restricted and blocked. The bucket should have public access restricted and blocked to prevent unauthorized access'`,
-      },
-      {
-        id: 'AwsSolutions-S10',
-        reason: `Rule suppression for 'The S3 Bucket or bucket policy does not require requests to use SSL'`,
-      },
-      {
-        id: 'AwsSolutions-DDB3',
-        reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
-      },
-    ]);
-    NagSuppressions.addResourceSuppressions(this.table, [
-      {
-        id: 'AwsSolutions-DDB3',
-        reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
-      },
-    ]);
+    NagSuppressions.addResourceSuppressions(
+      this,
+      [
+        {
+          id: 'AwsSolutions-S1',
+          reason: `Rule suppression for 'The S3 Bucket has server access logs disabled'`,
+        },
+        {
+          id: 'AwsSolutions-S2',
+          reason: `Rule suppression for 'The S3 Bucket does not have public access restricted and blocked. The bucket should have public access restricted and blocked to prevent unauthorized access'`,
+        },
+        {
+          id: 'AwsSolutions-S10',
+          reason: `Rule suppression for 'The S3 Bucket or bucket policy does not require requests to use SSL'`,
+        },
+        {
+          id: 'AwsSolutions-DDB3',
+          reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
+        },
+        {
+          id: 'AwsSolutions-DDB3',
+          reason: `Rule suppression for 'The DynamoDB table does not have Point-in-time Recovery enabled'`,
+        },
+      ],
+      true
+    );
   }
 }

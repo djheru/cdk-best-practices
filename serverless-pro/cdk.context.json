@@ -1,0 +1,14 @@
+{
+  "hosted-zone:account=190423078218:domainName=dev.stonktrader.io:region=us-east-1": {
+    "Id": "/hostedzone/Z07558772VHOY3V9QEXY8",
+    "Name": "dev.stonktrader.io."
+  },
+  "hosted-zone:account=228708224037:domainName=staging.stonktrader.io:region=us-east-1": {
+    "Id": "/hostedzone/Z05234252FW8CWCCYW02A",
+    "Name": "staging.stonktrader.io."
+  },
+  "hosted-zone:account=276541279630:domainName=stonktrader.io:region=us-east-1": {
+    "Id": "/hostedzone/Z02007023BQ74B8K59LSM",
+    "Name": "stonktrader.io."
+  }
+}

@@ -4,8 +4,8 @@ import 'source-map-support/register';
 
 import * as cdk from 'aws-cdk-lib';
 
+import { cicdEnvironment } from '../lib/pipeline/pipeline-config/pipeline-config';
 import { PipelineStack } from '../lib/pipeline/pipeline-stack/pipeline-stack';
-import { environments } from '../lib/pipeline/pipeline-config/pipeline-config';
 
 const app = new cdk.App();
 
@@ -13,8 +13,8 @@ const app = new cdk.App();
 // including the environment where the pipeline itself will be created
 new PipelineStack(app, 'ServerlessPro', {
   env: {
-    region: environments.cicd.env.region,
-    account: environments.cicd.env.account,
+    region: cicdEnvironment.env.region,
+    account: cicdEnvironment.env.account,
   },
 });
 

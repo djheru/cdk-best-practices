@@ -1,5 +1,4 @@
 export interface EnvironmentConfig {
-  codestarConnectionArn?: string;
   env: {
     account: string;
     region: string;
@@ -7,9 +6,25 @@ export interface EnvironmentConfig {
   stageName: string;
   stateful: {
     bucketName: string;
+    assetsBucketName: string;
   };
   stateless: {
     lambdaMemorySize: number;
+    canaryNotificationEmail: string;
+  };
+  client: {
+    bucketName: string;
+  };
+  shared: {
+    domainName: string;
+  };
+}
+
+export interface CiCdEnvironmentConfig {
+  codestarConnectionArn: string;
+  env: {
+    account: string;
+    region: string;
   };
 }
 
@@ -24,7 +39,6 @@ export const enum Stage {
   staging = 'staging',
   prod = 'prod',
   dev = 'dev',
-  cicd = 'cicd',
 }
 
 export const enum Account {

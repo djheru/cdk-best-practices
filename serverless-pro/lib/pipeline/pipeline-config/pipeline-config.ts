@@ -2,6 +2,7 @@ import { pascalCase } from 'change-case';
 import * as dotenv from 'dotenv';
 import {
   Account,
+  CiCdEnvironmentConfig,
   EnvironmentConfig,
   Region,
   Stage,
@@ -13,6 +14,16 @@ if (!process.env.CODESTAR_CONNECTION_ARN) {
   throw new Error('CODESTAR_CONNECTION_ARN must be set in the .env file');
 }
 
+export const CODESTAR_CONNECTION_ARN = process.env.CODESTAR_CONNECTION_ARN;
+
+export const cicdEnvironment: CiCdEnvironmentConfig = {
+  codestarConnectionArn: CODESTAR_CONNECTION_ARN,
+  env: {
+    account: Account.cicd,
+    region: Region.virginia,
+  },
+};
+
 export const environments: Record<Stage, EnvironmentConfig> = {
   // allow developers to spin up a quick branch for a given PR they are working on e.g. pr-124
   // this is done with an npm run dev, not through the pipeline, and uses the values in .env
@@ -23,10 +34,24 @@ export const environments: Record<Stage, EnvironmentConfig> = {
       region: process.env.REGION || (process.env.CDK_DEFAULT_REGION as string),
     },
     stateful: {
-      bucketName: `serverless-pro-${process.env.FEATURE}-bucket`.toLowerCase(),
+      bucketName: (
+        `serverless-pro-${process.env.FEATURE}-bucket-` + Account.dev
+      ).toLowerCase(),
+      assetsBucketName: (
+        `serverless-pro-lg-${process.env.FEATURE}-bucket-` + Account.dev
+      ).toLowerCase(),
     },
     stateless: {
       lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || '128'),
+      canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+    },
+    client: {
+      bucketName: (
+        `serverless-pro-client-${process.env.FEATURE}-bucket-` + Account.dev
+      ).toLowerCase(),
+    },
+    shared: {
+      domainName: 'stonktrader.io',
     },
     stageName: pascalCase(process.env.FEATURE || Stage.feature).replace(
       /_/g,
@@ -36,10 +61,18 @@ export const environments: Record<Stage, EnvironmentConfig> = {
   [Stage.dev]: {
     env: { account: Account.dev, region: Region.virginia },
     stateful: {
-      bucketName: 'serverless-pro-feature-dev-bucket-' + Account.dev,
+      bucketName: 'serverless-pro-dev-bucket-' + Account.dev,
+      assetsBucketName: 'serverless-pro-lg-dev-bucket-' + Account.dev,
     },
     stateless: {
       lambdaMemorySize: 128,
+      canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+    },
+    client: {
+      bucketName: 'serverless-pro-client-dev-bucket-' + Account.dev,
+    },
+    shared: {
+      domainName: 'stonktrader.io',
     },
     stageName: Stage.dev,
   },
@@ -50,9 +83,17 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     },
     stateful: {
       bucketName: 'serverless-pro-staging-bucket-' + Account.staging,
+      assetsBucketName: 'serverless-pro-lg-staging-bucket-' + Account.staging,
     },
     stateless: {
       lambdaMemorySize: 512,
+      canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+    },
+    client: {
+      bucketName: 'serverless-pro-client-staging-bucket-' + Account.staging,
+    },
+    shared: {
+      domainName: 'stonktrader.io',
     },
     stageName: Stage.staging,
   },
@@ -63,25 +104,18 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     },
     stateful: {
       bucketName: 'serverless-pro-prod-bucket-' + Account.prod,
+      assetsBucketName: 'serverless-pro-lg-prod-bucket-' + Account.prod,
     },
     stateless: {
       lambdaMemorySize: 1024,
+      canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+    },
+    client: {
+      bucketName: 'serverless-pro-client-prod-bucket-' + Account.prod,
+    },
+    shared: {
+      domainName: 'stonktrader.io',
     },
     stageName: Stage.prod,
-  },
-  [Stage.cicd]: {
-    codestarConnectionArn:
-      (process.env.CODESTAR_CONNECTION_ARN as string) || '',
-    env: {
-      account: Account.cicd,
-      region: Region.virginia,
-    },
-    stateful: {
-      bucketName: 'serverless-pro-cicd-bucket-' + Account.cicd,
-    },
-    stateless: {
-      lambdaMemorySize: 1024,
-    },
-    stageName: Stage.cicd,
   },
 };

@@ -671,3 +671,27 @@ pipeline.addStage(prodStage, {
     new pipelines.ManualApprovalStep('PromoteToProd'), // manual approval step
   ],
 ```
+
+---
+
+---
+
+# Part 3 - Sythetics, Dynamic Configurations, Cypress
+
+## Preface
+
+- We add a React front end for our orders API with a CloudFront distribution and a Route53 subdomain, which is built and deployed through the pipeline
+- We discuss the use of synthetics in the pipelines to check that our APIs and websites are running successfully even when we have no users on the system
+- We cover generating dynamic configuration within our pipelines for our React app which is stored in S3
+- We cover acceptance tests using Cypress
+
+## Workflow
+
+1. Customers use the website to perform CRUD operations
+2. The React client is hosted from S3 and uses the backend orders API
+3. We have lambda functions for the Orders operations (plus a healthcheck)
+4. The order information is persisted in DynamoDb
+5. The CDK pipeline uses a custom resource which invokes a Lambda function to populate the DB with configuration values
+6. We will add a API CloudWatch Synthetic Canary which checks that the API is operating properly, regardless of if customers are on the site or not
+7. We will add a Visual CloudWatch Synthetic Canary which checks our webpage is displaying properly
+8. If the canaries have issues, a CloudWatch alarm and SNS topic will alert us

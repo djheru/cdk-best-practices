@@ -19,6 +19,13 @@ export const handler: APIGatewayProxyHandler = async (
     return {
       statusCode: 200,
       body: JSON.stringify('success'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+        'Access-Control-Allow-Credentials': true,
+      },
     };
   } catch (error) {
     console.error(error);

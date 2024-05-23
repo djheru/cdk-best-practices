@@ -2,15 +2,23 @@
 
 exports[`pipeline-config should return the correct config for feature-dev 1`] = `
 {
+  "client": {
+    "bucketName": "serverless-pro-client-dev-bucket-190423078218",
+  },
   "env": {
     "account": "190423078218",
     "region": "us-east-1",
   },
+  "shared": {
+    "domainName": "stonktrader.io",
+  },
   "stageName": "dev",
   "stateful": {
-    "bucketName": "serverless-pro-feature-dev-bucket-190423078218",
+    "assetsBucketName": "serverless-pro-lg-dev-bucket-190423078218",
+    "bucketName": "serverless-pro-dev-bucket-190423078218",
   },
   "stateless": {
+    "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 128,
   },
 }
@@ -18,15 +26,23 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
 
 exports[`pipeline-config should return the correct config for prod 1`] = `
 {
+  "client": {
+    "bucketName": "serverless-pro-client-prod-bucket-276541279630",
+  },
   "env": {
     "account": "276541279630",
     "region": "us-east-1",
   },
+  "shared": {
+    "domainName": "stonktrader.io",
+  },
   "stageName": "prod",
   "stateful": {
+    "assetsBucketName": "serverless-pro-lg-prod-bucket-276541279630",
     "bucketName": "serverless-pro-prod-bucket-276541279630",
   },
   "stateless": {
+    "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 1024,
   },
 }
@@ -34,15 +50,23 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
 
 exports[`pipeline-config should return the correct config for staging 1`] = `
 {
+  "client": {
+    "bucketName": "serverless-pro-client-staging-bucket-228708224037",
+  },
   "env": {
     "account": "228708224037",
     "region": "us-east-1",
   },
+  "shared": {
+    "domainName": "stonktrader.io",
+  },
   "stageName": "staging",
   "stateful": {
+    "assetsBucketName": "serverless-pro-lg-staging-bucket-228708224037",
     "bucketName": "serverless-pro-staging-bucket-228708224037",
   },
   "stateless": {
+    "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 512,
   },
 }

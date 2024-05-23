@@ -1,8 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
+import { Cache } from 'aws-cdk-lib/aws-codebuild';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
 import * as pipelines from 'aws-cdk-lib/pipelines';
 import { pascalCase } from 'change-case';
 import { Construct } from 'constructs';
-import { environments } from '../pipeline-config/pipeline-config';
+import {
+  cicdEnvironment,
+  environments,
+} from '../pipeline-config/pipeline-config';
 import { PipelineStage } from '../pipeline-stage/pipeline-stage';
 
 export class PipelineStack extends cdk.Stack {
@@ -19,21 +24,36 @@ export class PipelineStack extends cdk.Stack {
       this,
       'PipelineStack',
       {
+        useChangeSets: true,
+        publishAssetsInParallel: true,
+        dockerEnabledForSynth: true,
         crossAccountKeys: true,
         selfMutation: true,
+        codeBuildDefaults: {
+          cache: Cache.bucket(new Bucket(this, 'CodeBuildCache')),
+        },
+        assetPublishingCodeBuildDefaults: {
+          cache: Cache.bucket(new Bucket(this, 'AssetCache')),
+        },
         pipelineName: 'serverless-pro-pipeline',
-        synth: new pipelines.ShellStep('Synth', {
+        synth: new pipelines.CodeBuildStep('Synth', {
+          cache: Cache.bucket(new Bucket(this, 'PipeLineCache')),
           input: pipelines.CodePipelineSource.connection(
             'djheru/cdk-best-practices',
             'main',
             {
-              connectionArn: `${environments.cicd.codestarConnectionArn}`,
+              connectionArn: `${cicdEnvironment.codestarConnectionArn}`,
             }
           ),
           primaryOutputDirectory: './serverless-pro/cdk.out', // these are our immutable build assets
           // source stage
           commands: [
-            'cd ./serverless-pro',
+            // build the client once as the config will be passed to the s3 bucket
+            'cd ./client',
+            'npm ci',
+            'npm run build',
+            // build the pipeline and apps
+            'cd ../serverless-pro/',
             'npm ci',
             'npx cdk synth',
             'npm run lint',
@@ -78,6 +98,21 @@ export class PipelineStack extends cdk.Stack {
           commands: [
             'npm install -g newman',
             'newman run ./tests/integration/integration-collection.json --env-var api-url=$API_ENDPOINT',
+          ],
+        }),
+
+        new pipelines.ShellStep('AcceptanceTests', {
+          envFromCfnOutputs: {
+            ROUTE53_CLIENT_URL: developmentStage.route53ClientUrl,
+          },
+          // we run the cypress acceptance tests against beta (feature dev)
+          commands: [
+            'apt-get update',
+            'apt-get install -y xvfb libatk-bridge2.0-0 libgbm-dev libgtk-3-0 libgtk2.0-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2',
+            'cd ./client/',
+            'npm ci',
+            'npx cypress verify',
+            'CYPRESS_BASE_URL=https://$ROUTE53_CLIENT_URL/ npx cypress run',
           ],
         }),
       ],
