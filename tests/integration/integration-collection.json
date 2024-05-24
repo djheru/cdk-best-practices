@@ -49,9 +49,9 @@
           }
         },
         "url": {
-          "raw": "{{api-url}}orders/",
+          "raw": "{{api-url}}/orders/",
           "host": [
-            "{{api-url}}orders"
+            "{{api-url}}/orders"
           ],
           "path": [
             ""
@@ -91,9 +91,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{api-url}}orders/{{orderId}}",
+          "raw": "{{api-url}}/orders/{{orderId}}",
           "host": [
-            "{{api-url}}orders"
+            "{{api-url}}/orders"
           ],
           "path": [
             "{{orderId}}"
