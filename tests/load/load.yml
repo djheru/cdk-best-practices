@@ -25,7 +25,7 @@ config:
   environments:
     # load testing below
     load:
-      target: "{{ $processEnvironment.API_ENDPOINT }}"
+      target: "https://{{ $processEnvironment.API_ENDPOINT }}"
       phases:
         - duration: 20
           arrivalRate: 1
