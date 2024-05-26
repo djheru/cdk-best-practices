@@ -695,3 +695,198 @@ pipeline.addStage(prodStage, {
 6. We will add a API CloudWatch Synthetic Canary which checks that the API is operating properly, regardless of if customers are on the site or not
 7. We will add a Visual CloudWatch Synthetic Canary which checks our webpage is displaying properly
 8. If the canaries have issues, a CloudWatch alarm and SNS topic will alert us
+
+## The Addition of a Frontend
+
+### Dynamic Configuration
+
+- Sometimes we need to dynamically generate configurations that are specific to the stage we're deploying to
+- In our example, we need to generate a configuration file for the frontend providing details about the API
+- The example code below illustrates how you can create a JSON config file and push it to the S3 bucket along with the React assets
+
+```ts
+// Setup Bucket Deployment to automatically deploy new assets and invalidate cache
+new s3deploy.BucketDeployment(this, "ClientBucketDeployment", {
+  sources: [
+    s3deploy.Source.asset(path.join(__dirname, "../../../../client/build")),
+    s3deploy.Source.jsonData("config.json", {
+      stage,
+      domainName: props.domainName,
+      subDomain,
+      api: `https://${apiSubDomain}`,
+    }), // runtime config for client
+  ],
+  destinationBucket: this.bucket,
+  metadata: {
+    stageName: stage,
+  },
+  distribution: cloudFrontDistribution,
+  distributionPaths: ["/*"],
+});
+```
+
+The generated file looks something like this:
+
+```json
+{
+  "stage": "dev",
+  "domainName": "example.com",
+  "subDomain": "dev.example.com",
+  "api": "https://api.dev.example.com"
+}
+```
+
+Then we can create a service (e.g. `config-service.ts`) to read this static file
+
+```ts
+import { IConfig } from "../types";
+
+export async function getConfig(): Promise<IConfig> {
+  const response = await fetch("config.json");
+  const config: IConfig = await response.json();
+  return config;
+}
+```
+
+Then we can read into the React app
+
+```ts
+function App() {
+  const [config, setConfig] = useState<IConfig>();
+  // ...
+
+useEffect(() => {
+    async function fetchData() {
+      try {
+        // set loading
+        setLoading(true);
+
+        // fetch the config on app load
+        const config = await getConfig();
+        setConfig(config);
+
+        // get the orders
+        const orders: IOrder[] = await listOrders(config?.api);
+        setOrders(orders);
+        setLoading(false);
+      } catch (error) {
+        setIsError(true);
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+```
+
+## Test Stage
+
+### Acceptance Tests using Cypress
+
+> Run automated testing from the users’ perspective in the beta environment. These tests verify the user workflow, including when performed through a UI. These test are the slowest to run and hardest to maintain and therefore it is recommended to only have a few end-to-end tests that cover the most important application workflows. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#local-development](https://pipelines.devops.aws.dev/application-pipeline/index.html#local-development)
+
+- We will be using Cypress as suggested in the article above
+
+> Build, test, and debug directly in your browser with a seamless developer experience that is loved by developers all around the world. Test your code, not your patience - [https://www.cypress.io/](https://www.cypress.io/)
+
+### Cypress Overview
+
+- Cypress allows us to run acceptance tests in our pipeline against the application deployed in the dev environment
+
+Example checks we can test include things like the following:
+
+- The correct modals show and hide when clicking the relevant buttons
+- The correct titles and subtitles are shown
+- When a new item is created it's added to the list of items
+
+During development locally, we can also run the visual app created by Cypress,
+
+```
+npm run cypress:open:beta
+```
+
+which in turn runs the following npm run script:
+
+```
+"cypress:open:beta": "CYPRESS_BASE_URL=https://dev.stonktrader.io/ npx cypress open"
+```
+
+This will open a Cypress window where you can start the test process manually
+
+![Cypress 1](./assets/cypress1.png)
+
+Then, you can see the tests organized into specs. Once they run, you can see the results.
+
+![Cypress 2](./assets/cypress2.png)
+
+As the cypress tests run you can see the interactions in the browser windown.
+
+![Cypress 3](./assets/cypress3.png)
+
+### Cypress Test Suite Code
+
+Below we can see some example cypress test code
+
+```ts
+describe("create-order", () => {
+  beforeEach(() => {
+    cy.visit("/");
+  });
+
+  it("should have modal closed on initial page load", () => {
+    cy.get('[data-test="create-order-modal"]').should("not.exist");
+  });
+
+  it("should open the create order modal", () => {
+    // arrange / act
+    cy.get('[data-test="create-order-button"]').click();
+    // assert
+    cy.get('[data-test="create-order-modal"]').should("exist");
+  });
+
+  it("should create an new order successfully and close the modal", () => {
+    // arrange
+    cy.get('[data-test="create-order-button"]').click();
+
+    cy.get('[data-test="create-order-select-product"]')
+      .click()
+      .get('ul > li[data-value="MacPro"]')
+      .click();
+
+    cy.get('[data-test="create-order-select-store"]')
+      .click()
+      .get('ul > li[data-value="59b8a675-9bb7-46c7-955d-2566edfba8ea"]')
+      .click();
+
+    cy.get('[data-test="create-order-set-quantity"]')
+      .click()
+      .type("{uparrow}{uparrow}{uparrow}{uparrow}");
+
+    // act
+    cy.get('[data-test="create-order-modal-button"]').click();
+    // assert
+    cy.get('[data-test="create-order-modal"]').should("not.exist");
+  });
+```
+
+We call the acceptance tests in the pipeline code in `pipeline-stack.ts`. This invokes cypress using the headless browswer, rather thnak the local developement application we looked at previously.
+
+Here is the pipeline code for the acceptance tests
+
+```ts
+new pipelines.ShellStep('AcceptanceTests', {
+  envFromCfnOutputs: {
+    ROUTE53_CLIENT_URL: developmentStage.route53ClientUrl,
+  },
+  // we run the cypress acceptance tests against beta (feature dev)
+  commands: [
+    'apt-get update',
+    'apt-get install -y xvfb libatk-bridge2.0-0 libgbm-dev libgtk-3-0 libgtk2.0-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2',
+    'cd ./client/',
+    'npm ci',
+    'npx cypress verify',
+    'CYPRESS_BASE_URL=https://$ROUTE53_CLIENT_URL/ npx cypress run',
+  ],
+}),
+```
+
+## Staging and Production

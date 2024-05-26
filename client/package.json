@@ -28,10 +28,10 @@
     "test": "react-scripts test --watchAll=false",
     "test:watch": "react-scripts test --watchAll=true",
     "eject": "react-scripts eject",
-    "cypress:open:beta": "CYPRESS_BASE_URL=https://featuredev.your-domain.co.uk/ npx cypress open",
+    "cypress:open:beta": "CYPRESS_BASE_URL=https://dev.stonktrader.io/ npx cypress open",
     "cypress:open:local": "CYPRESS_BASE_URL=http://localhost:3000/ npx cypress open",
     "cypress:run:local": "CYPRESS_BASE_URL=http://localhost:3000/ npx cypress run",
-    "cypress:run:beta": "CYPRESS_BASE_URL=https://featuredev.your-domain.co.uk.co.uk/ npx cypress run"
+    "cypress:run:beta": "CYPRESS_BASE_URL=https://dev.stonktrader.io/ npx cypress run"
   },
   "eslintConfig": {
     "extends": [
