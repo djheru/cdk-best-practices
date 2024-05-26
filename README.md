@@ -890,3 +890,67 @@ new pipelines.ShellStep('AcceptanceTests', {
 ```
 
 ## Staging and Production
+
+### Synthetic Tests using CloudWatch Synthetics
+
+> Tests that run continuously in the background in a given environment to generate traffic and verify the system is healthy. These tests serve two purposes: 1/ Ensure there is always adequate traffic in the environment to trigger alarms if a deployment is unhealthy 2/ Test specific workflows and assert that the system is functioning correctly. Examples of tools that can be used for synthetic tests include but are not limited to Amazon CloudWatch Synthetics,Dynatrace Synthetic Monitoring, and Datadog Synthetic Monitoring. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#local-development](https://pipelines.devops.aws.dev/application-pipeline/index.html#local-development)
+
+> You can use Amazon CloudWatch Synthetics to create canaries, configurable scripts that run on a schedule, to monitor your endpoints and APIs. Canaries follow the same routes and perform the same actions as a customer, which makes it possible for you to continually verify your customer experience even when you don’t have any customer traffic on your applications. By using canaries, you can discover issues before your customers do.- [https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries.html](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries.html)
+
+#### API Testing with CloudWatch Synthetics
+
+- https://youtu.be/DSx65wW7lr0
+
+#### Visual Testing with CloudWatch Synthetics
+
+- https://youtu.be/_PCs-ucZz7E
+
+#### Implementing Synthetics in our App
+
+- We create the canaries as part of our stateless stack, not the pipeline
+- That's because they're an ongoing process, not just run at deploy time
+- We create the canaries for staging and prod only
+- We create two canaries, one for visual testing, and the other for API
+- We create two SNS Topics with email alerts for failing canary tests
+- The configuration for the canary uses a lambda handler to perform the tests
+
+```ts
+const apiCanary: Canary = new Canary(this, "APICanary", {
+  canaryName: `${props.stageName}-api-canary`,
+  role: canaryRole,
+  schedule: Schedule.rate(cdk.Duration.minutes(5)),
+  artifactsBucketLocation: {
+    bucket: props.assetsBucket,
+  },
+  test: Test.custom({
+    code: Code.fromAsset(path.join(__dirname, "./src/canaries/api-canary")),
+    handler: "index.handler",
+  }),
+  runtime: Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+  environmentVariables: {
+    APP_API_HOST: props.domainName,
+    STAGE: props.stageName,
+  },
+});
+const visualCanary: Canary = new Canary(this, "VisualCanary", {
+  canaryName: `${props.stageName}-visual-canary`,
+  role: canaryRole,
+  schedule: Schedule.rate(cdk.Duration.minutes(5)),
+  artifactsBucketLocation: {
+    bucket: props.assetsBucket,
+  },
+  test: Test.custom({
+    code: Code.fromAsset(path.join(__dirname, "./src/canaries/visual-canary")),
+    handler: "index.handler",
+  }),
+  runtime: Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+  environmentVariables: {
+    STAGE: props.stageName,
+    WEBSITE_URL: websiteSubDomain,
+  },
+});
+```
+
+#### Visual Canary
+
+The code runs the canary (_lambda function_) very 5 minutes.
