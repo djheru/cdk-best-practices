@@ -953,4 +953,39 @@ const visualCanary: Canary = new Canary(this, "VisualCanary", {
 
 #### Visual Canary
 
-The code runs the canary (_lambda function_) very 5 minutes.
+The code runs the canary (_lambda function_) every 5 minutes. We are using Puppeteer to run our tests (can also use Selenium). The canaries allow access to a headless Google Chrome browser via [Puppeteer](https://developers.google.com/web/tools/puppeteer) or [Selenium Webdriver](https://www.selenium.dev/).
+
+- [https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries.html](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries.html)
+
+The basic operation of the code is to iterate over the pages passed to the environment variable and loading the page. If the load is successful (_200 response_) we take a screenshot.
+
+The screenshot is stored in S3 and compared to the previous image to ensure that is does not differ visually by more than a configured percentage (15% in our example).
+
+![Synthetics 1](./assets/synthetics1.png)
+
+In our code we also create an alarm based on success metrics
+
+```ts
+const visualAlarm: cloudwatch.Alarm = new cloudwatch.Alarm(
+  this,
+  "VisualCanaryAlarm",
+  {
+    metric: visualCanary.metricSuccessPercent(), // percentage of successful canary runs over a given time
+    evaluationPeriods: 1,
+    threshold: 60,
+    datapointsToAlarm: 1,
+    actionsEnabled: true,
+    alarmDescription: `${props.stageName} Visual Canary CloudWatch Alarm`,
+    alarmName: `${props.stageName}VisualCanaryAlarm`,
+    comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+  }
+);
+
+visualAlarm.addAlarmAction(new actions.SnsAction(visualTopic));
+```
+
+This alarm means that day or night, and with or without users on our system, we will be alerted if there are any issues.
+
+For more information on Amazon Synthetic Canaries please see the following deep dive article:
+
+- [https://blog.serverlessadvocate.com/serverless-synthetic-canaries-7946dc5216ba](https://blog.serverlessadvocate.com/serverless-synthetic-canaries-7946dc5216ba)
