@@ -989,3 +989,799 @@ This alarm means that day or night, and with or without users on our system, we 
 For more information on Amazon Synthetic Canaries please see the following deep dive article:
 
 - [https://blog.serverlessadvocate.com/serverless-synthetic-canaries-7946dc5216ba](https://blog.serverlessadvocate.com/serverless-synthetic-canaries-7946dc5216ba)
+
+#### API Canary
+
+In the same manner, we set up a canary to make requests directly to the API to ensure proper functioning. In `./serverless-pro/lib/app/stateless/src/canaries/api-canary/nodejs/node_modules/index.js`, we can see the code to configure a request to `GET /orders` and verify that the request was successful.
+
+---
+
+---
+
+# Part 4 - L3 Constructs, Structured Logging, Progressive Deployments & Feature Flags
+
+## Preface
+
+- We will add some AWS L3 custom CDK constructs to the solution
+- We'll add structured logging, metrics and tracing using the Lambda Powertools package
+- We'll deep-dive into progressive deployments with AWS Lambda using CodeDeploy for blue/green deployments
+- We'll implement feature flags in the CI/CD pipeline using AWS AppConfig
+
+## Workflow
+
+1. Customers use the ReactJS frontend app for viewing and placing orders
+2. The frontend application uses the Orders API which is an API Gateway
+3. The integrated lambda functions use a Lambda Layer to pull feature flags/toggles from AWS AppConfig on a set cycle
+4. As part of the wider AWS CodePipeline, we use AWS CodeDeploy to deploy the lambda functions in a Blue/Green pattern, slowly scaling from a small set of functions having the new code to all of them over a fixed time period
+5. If any of the new functions throw errors during the time period, an attached CloudWatch alarm notifies an SNS topic and the deployment is rolled back
+6. A subscription on the AWS SNS topic emails the dev team notifying them of the failed deployment.
+
+## Key Considerations and Code Walkthrough
+
+### Custom L3 AWS CDK Constructs
+
+> Constructs are the basic building blocks of AWS CDK apps. A construct represents a “cloud component” and encapsulates everything AWS CloudFormation needs to create the component. - [https://docs.aws.amazon.com/cdk/v2/guide/constructs.html](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html)
+
+#### L1 Constructs
+
+There are three levelos of constructs in this library, beginning with low-level constructs, called _CFN Resources_ or _L1_, short for "layer 1". These constructs directly represent their equivalent CloudFormation resources (Example: `CfnBucket` represents the `AWS::S3::Bucket` CloudFormation resource)
+
+#### L2 Constructs
+
+The next level of constructs, _L2_ also represent AWS resources, but with a higher level of abstraction and an intent-based API. They also include defaults, boilerplate and glue logic not provided with L1 constructs. For example, the `s3.Bucket` class represents an Amazon S3 bucket with additional properties and methods, such as `bucket.addLifeCycleRule()`.
+
+#### L3 Constructs
+
+The AWS Construct library includes L3 constructs, which we call _patterns_. These constructs are designed to help accomplish common tasks in AWS, often involving multiple kinds of resources. For example the `aws-ecs-patterns.ApplicationLoadBalancedFargateService` construct represents an architecture that includes an AWS ECS Service, along with an Application Load Balancer. The `aws-apigateway.LambdaRestApi` construct represents an Amazon API Gateway API that is backed by a lambda function.
+
+When it comes to L3 constructs, we have the option of using patterns created by AWS, patterns on [Construct Hub](https://constructs.dev/) provided in the open source community, or we can build our own.
+
+_Note:_ In this example we are going to create custom constructs in the repo only, and not publish them on NPM or anything.
+
+### Example: API Construct
+
+In our example we need an API Gateway REST API for our orders domain service interface for the frontend client.
+
+Typically we could use the L2 `RestApi` construct from `aws-cdk-lib/aws-apigateway`. In our case, to illustrate the use of L3 Constructs, we'll implement a use case where we want to restrict the properties that an engineer can pass into the construct, and we want to add some fixed properties to adhere to organizational rules.
+
+```ts
+import * as apigw from "aws-cdk-lib/aws-apigateway";
+
+import { Construct } from "constructs";
+
+interface ApiProps extends Pick<apigw.RestApiProps, "description" | "deploy"> {
+  // The stage name which the api is being used with
+  stageName: string;
+  // The api description
+  description: string;
+  // Whether or not to deploy the api
+  deploy: boolean;
+}
+
+type FixedApiProps = Omit<apigw.RestApiProps, "description" | "deploy">;
+
+export class Api extends Construct {
+  public readonly api: apigw.RestApi;
+
+  constructor(scope: Construct, id: string, props: ApiProps) {
+    super(scope, id);
+
+    const fixedProps: FixedApiProps = {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigw.Cors.ALL_ORIGINS,
+        allowCredentials: true,
+        allowMethods: ["OPTIONS", "POST", "GET"],
+        allowHeaders: ["*"],
+      },
+      endpointTypes: [apigw.EndpointType.REGIONAL],
+      cloudWatchRole: true,
+      deployOptions: {
+        stageName: props.stageName,
+        loggingLevel: apigw.MethodLoggingLevel.INFO,
+      },
+    };
+
+    this.api = new apigw.RestApi(this, id + "Api", {
+      // fixed props
+      ...fixedProps,
+      // custom props
+      description: props.description
+        ? props.description
+        : `Serverless Pro API ${props.stageName}`,
+      deploy: props.deploy ? props.deploy : true,
+    });
+  }
+}
+```
+
+We also create a type for the `FixedApiProps` which we will create to allow us to set and type the fixed properties (we can see that this is the RestApiProps minus the ones we are allowing people to interact with through the custom props):
+
+```ts
+type FixedApiProps = Omit<apigw.RestApiProps, "description" | "deploy">;
+```
+
+We then simply create a class called Api which extends the Construct base class, creating a public readonly RestApi property which we will assign to when we create an instance of the class (with our fixed properties and custom properties).
+
+We then set our fixed properties that we don’t want anybody to change as shown below (again these are purely made up for the article and would be specific to your needs):
+
+```ts
+const fixedProps: FixedApiProps = {
+  defaultCorsPreflightOptions: {
+    allowOrigins: apigw.Cors.ALL_ORIGINS,
+    allowCredentials: true,
+    allowMethods: ["OPTIONS", "POST", "GET"],
+    allowHeaders: ["*"],
+  },
+  endpointTypes: [apigw.EndpointType.REGIONAL],
+  cloudWatchRole: true,
+  deployOptions: {
+    stageName: props.stageName,
+    loggingLevel: apigw.MethodLoggingLevel.INFO,
+  },
+};
+```
+
+and we finally spread the fixed properties and custom properties into the RestApi instance construct that we will be returning:
+
+```ts
+this.api = new apigw.RestApi(this, id + "Api", {
+  // fixed props
+  ...fixedProps,
+  // custom props
+  description: props.description
+    ? props.description
+    : `Serverless Pro API ${props.stageName}`,
+  deploy: props.deploy ? props.deploy : true,
+});
+```
+
+We can now utilise this custom L3 Api construct in code multiple times as shown below:
+
+```ts
+// create the rest api
+this.ordersApi = new Api(this, "Api", {
+  description: `Serverless Pro API ${props.stageName}`,
+  stageName: props.stageName,
+  deploy: true,
+}).api;
+```
+
+This is of course a very simple implementation of the construct and the real power comes from being able to create a custom L3 (level 3) construct which encompasses multiple L2 constructs to create a ‘pattern’, which is covered further into the article in the section for Progressive Lambda Deployments.
+
+### Structured Logging, Metrics, and Tracing with Lambda Powertools
+
+> Powertools is a developer toolkit to implement Serverless best practices and increase developer velocity. You can use Powertools in both TypeScript and JavaScript code bases. - [https://awslabs.github.io/aws-lambda-powertools-typescript/latest/](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/)
+
+The [Lambda Powertools for Typescript](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/) covers the following areas:
+
+- Logging - Structured logging made easier and a middleware to enrich structured logs with key Lambda context details
+- Tracing - Decorators and utilities to trace lambda function handlers, both synchronous and async
+- Metrics - Custom metrics created asynchronously via CloudWatch Embdedded Metric Format (EMF) - This is what we use to alert on errors for progressive deployments
+
+We can see an example of the usage in `./serverless-pro/lib/app/stateless/src/handlers/list-orders/list-orders.ts`
+
+```ts
+import { Logger, injectLambdaContext } from "@aws-lambda-powertools/logger";
+import {
+  MetricUnits,
+  Metrics,
+  logMetrics,
+} from "@aws-lambda-powertools/metrics";
+import { Tracer, captureLambdaHandler } from "@aws-lambda-powertools/tracer";
+import middy from "@middy/core";
+```
+
+We are using packages from the following:
+
+- `@aws-lambda-powertools`
+- `@middy-core`
+
+> Middy middleware is used for organising your Lambda code,
+> removing code duplication, and allowing engineers
+> to focus on the business logic. - [https://middy.js.org/](https://middy.js.org/)
+
+The Core Middy package allows us to wrap our function handler with middleware which works in conjunction with the Lambda Powertools package:
+
+```ts
+export const listOrdersHandler: APIGatewayProxyHandler =
+  async (): Promise<APIGatewayProxyResult> => {
+    //omit ...
+  };
+
+export const handler = middy(listOrdersHandler)
+  .use(
+    injectLambdaContext(logger, {
+      logEvent: logEvent.toLowerCase() === "true" ? true : false,
+    })
+  )
+  .use(captureLambdaHandler(tracer))
+  .use(logMetrics(metrics));
+```
+
+The middleware wrapping the core handler function provides the following functionality:
+
+- **injectLambdaContext** - Using this middleware adds context information to structured logs and optionally log the event and clear attributes set during the invocation
+- **captureLambdaHandler** - Automates capture of metadata and annotations on segments or subsegments of a Lambda handler
+- **logMetrics** - Using this middleware will automatically flush metrics when the handler returns or throws an error
+
+#### Logging
+
+Now, we can use the tools in our handler after instantiating them outside of the handler function
+
+```ts
+const { logLevel, logSampleRate, logEvent } = config.get("shared.functions");
+
+const logger = new Logger({
+  serviceName: "list-orders",
+  logLevel: logLevel as LogLevel,
+  sampleRateValue: logSampleRate,
+});
+
+const tracer = new Tracer();
+const metrics = new Metrics();
+```
+
+**Note**: By instantiating outside of the handler,
+subsequent invocations processed by the same instance of your
+function can reuse these resources. This saves cost by
+reducing function run time.
+
+Logging in the handler function code is simple, e.g.:
+
+```ts
+logger.info("started");
+logger.error("An error!");
+logger.debug("debug");
+```
+
+This will provide structured logs in CloudWatch similar to the following:
+
+```json
+{
+  "cold_start": true,
+  "function_arn": "arn:aws:lambda:eu-west-1:123456789123:function:featureDev-StatelessStack-ListOrdersLambda06B4A617-2PRcAxK4IkCJ:featureDev",
+  "function_memory_size": 128,
+  "function_name": "featureDev-StatelessStack-ListOrdersLambda06B4A617-2PRcAxK4IkCJ",
+  "function_request_id": "e836bfe0-e0e7-4e96-a3f3-20c5196581c1",
+  "level": "INFO",
+  "message": "started",
+  "sampling_rate": 1,
+  "service": "list-orders",
+  "timestamp": "2023-04-26T12:56:36.495Z",
+  "xray_trace_id": "1-64491f83-74edae9a59325a2102530d0f"
+}
+```
+
+#### Metrics
+
+Next, we can add custom metrics to our functions; with our examples being specifically for ListOrdersSuccess and ListOrdersError. This is shown below:
+
+```ts
+// ...
+// we create the metric for success
+metrics.addMetric("ListOrdersSuccess", MetricUnits.Count, 1);
+//...
+
+// we create the metric for failure
+metrics.addMetric("ListOrdersError", MetricUnits.Count, 1);
+//...
+```
+
+The specific metrics for failure (`ListOrdersError`) allows us to set up Amazon CloudWatch alarms that will be used in conjunction with the blue/green deployments to roll back bad deployments if we see a specific number of these error metrics pass pre-defined thresholds within a given time period
+
+### Progressive Deployments using Lambda Blue/Green
+
+> Deployments should be made progressively in waves to limit the impact of failures. A common approach is to deploy changes to a subset of AWS regions and allow sufficient bake time to monitor performance and behavior before proceeding with additional waves of AWS regions.
+
+> Software should be deployed using one of progressive deployment involving controlled rollout of a change through techniques such as canary deployments, feature flags, and traffic shifting. Software deployments should be performed through Infrastructure Source Code. Access to the production environment should be handled via [cross-account IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_cross-account-with-roles.html) rather than long lived credentials from IAM users. Examples of tools to deploy software include but are not limited to [AWS CodeDeploy](https://aws.amazon.com/codedeploy/). Ideally, deployments should be automatically failed and rolled back when error thresholds are breached. Examples of automated rollback include AWS CloudFormation monitor & rollback, [AWS CodeDeploy rollback](https://docs.aws.amazon.com/codedeploy/latest/userguide/deployments-rollback-and-redeploy.html) and Flagger. - [https://pipelines.devops.aws.dev/application-pipeline/index.html#test-beta](https://pipelines.devops.aws.dev/application-pipeline/index.html#test-beta)
+
+In our example Orders API we have 3 distinct Lambda functions that comprise the API:
+
+- **CreateOrder**
+- **GetOrder**
+- **ListOrders**
+
+Ideally, when we make a change to these functions we want to deploy progressively using a blue/green technique, allowng us to deploy first to a subset of functions. (_[our canary in the coal mine](https://martinfowler.com/bliki/CanaryRelease.html)_)
+
+Our approach is to use Lambda Aliases with AWS CodeDeploy wrapped into a L3 construct with functions as below:
+
+- Deploys a new version of the Lambda function, with an alias that points to the new version
+- Gradually shifts traffic to the new version until you're satisfied it's working as expected
+- If the update doesn't work correctly you can roll back the changes
+- If the CloudWatch alarms are triggered, the deployment is automatically rolled back
+
+#### Benefits
+
+- We deploy the new code to a limited subset of Lambda function executions, reducing the blast radius of errors
+- Code is automatically rolled back in the case of errors, as identified by our metrics
+
+### Implementing the Progressive Lambda L3 Construct
+
+#### Construct Props
+
+We start by defining the `ProgressiveLambdaProps` which extends the interface of `NodejsFunctionProps` and adds additional props
+
+```ts
+interface ProgressiveLambdaProps extends NodejsFunctionProps {
+  // The stage name which the lambda is being used with
+  stageName: string;
+  // The code deploy application which this lambda is part of
+  application: codeDeploy.LambdaApplication;
+  // The code deploy lambda deployment config
+  deploymentConfig: codeDeploy.ILambdaDeploymentConfig;
+  // whether or not the alarm is enabled
+  alarmEnabed: boolean;
+  // A reference to the sns topic which the alarm will use
+  snsTopic: sns.Topic;
+  // the metric name for our alarm
+  metricName: string;
+  // the namespace for our alarm
+  namespace: string;
+  // the service name for our alarm
+  serviceName: string;
+}
+```
+
+#### Expose Certain Resources
+
+Then we add class properties to allow access to the underlying Lambda function, Lambda function alias, and CloudWatch Alarm
+
+```ts
+public readonly deploymentGroup: codeDeploy.LambdaDeploymentGroup;
+private readonly application: codeDeploy.LambdaApplication;
+private readonly deploymentConfig: codeDeploy.ILambdaDeploymentConfig;
+```
+
+#### Instantiate the Resources
+
+Then we create the function and the alias
+
+```ts
+// creation of the lambda passing through the props
+this.lambda = new nodeLambda.NodejsFunction(this, id, {
+  ...props,
+});
+
+// the lambda alias
+this.alias = new lambda.Alias(this, id + "Alias", {
+  aliasName: props.stageName,
+  version: this.lambda.currentVersion,
+});
+```
+
+#### Create the CloudWatch Alarms
+
+The alarm is based on Lambda errors over a one-minute period
+
+1. The error metric is scoped to each handler, e.g. `ListOrdersError` which is passed into the `metricName` property
+2. We will utilize the namespace for each stage, e.g. `ServerlessProFeatureDev`
+3. We use the `sum` statistic, which means the sum total of the metrics for a given namespace in a given period
+4. We set the threshold to 1 and comparisonOperator to _greater than or equal to threshold_, meaning that in the time period of 1 minute, we trigger if we receive one or more of these metrics
+5. We add the `dimensionMap` property of `service`, which in our example for the `dev` stage would be `serverless-prop-orders-service-dev`
+
+```ts
+this.alarm = new cloudwatch.Alarm(this, id + "Failure", {
+  alarmDescription: `${props.namespace}/${props.metricName} deployment errors > 0 for ${id}`,
+  actionsEnabled: props.alarmEnabed,
+  treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING, // ensure the alarm is only triggered for a period
+  metric: new cloudwatch.Metric({
+    metricName: props.metricName,
+    namespace: props.namespace,
+    statistic: cloudwatch.Stats.SUM,
+    dimensionsMap: {
+      service: props.serviceName,
+    },
+    period: Duration.minutes(1),
+  }),
+  threshold: 1,
+  comparisonOperator:
+    cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+  evaluationPeriods: 1,
+});
+
+this.alarm.addAlarmAction(new actions.SnsAction(props.snsTopic));
+this.alarm.applyRemovalPolicy(RemovalPolicy.DESTROY);
+```
+
+#### CodeDeploy Deployment Group
+
+The final part of the puzzle is the AWS CodeDeploy Deployment Group as shown below
+
+```ts
+// the code deploy deployment group
+this.deploymentGroup = new codeDeploy.LambdaDeploymentGroup(
+  this,
+  id + "CanaryDeployment",
+  {
+    alias: this.alias,
+    deploymentConfig: this.deploymentConfig,
+    alarms: [this.alarm],
+    application: this.application,
+  }
+);
+```
+
+#### Using the L3 Construct
+
+```ts
+const { alias: createOrderLambdaAlias, lambda: createOrderLambda } =
+  new ProgressiveLambda(this, "CreateOrderLambda", {
+    stageName: props.stageName,
+    serviceName: props.powerToolServiceName,
+    metricName: "OrderCreatedError",
+    namespace: props.powerToolsMetricsNamespace,
+    tracing: lambda.Tracing.ACTIVE,
+    logRetention: RetentionDays.ONE_DAY,
+    architecture: lambda.Architecture.ARM_64,
+    application,
+    alarmEnabed: true,
+    snsTopic: lambdaDeploymentTopic,
+    timeout: cdk.Duration.seconds(10),
+    retryAttempts: 0,
+    deploymentConfig:
+      codeDeploy.LambdaDeploymentConfig.CANARY_10PERCENT_5MINUTES,
+    runtime: lambda.Runtime.NODEJS_16_X,
+    layers: [appConfigLambdaLayerExtension],
+    entry: path.join(__dirname, "src/handlers/create-order/create-order.ts"),
+    memorySize: props.lambdaMemorySize,
+    handler: "handler",
+    bundling: {
+      minify: true,
+      externalModules: ["aws-sdk"],
+      sourceMap: true,
+    },
+    environment: {
+      TABLE_NAME: table.tableName,
+      BUCKET_NAME: bucket.bucketName,
+      RANDOM_ERRORS_ENABLED: props.randomErrorsEnabled,
+      ...appConfigEnvironment,
+      ...lambdaPowerToolsConfig,
+      FLAG_CREATE_ORDER_ALLOW_LIST: createOrderAllowList,
+      FLAG_PREVENT_CREATE_ORDERS: opsPreventCreateOrders,
+      FLAG_CHECK_CREATE_ORDER_QUANTITY: releaseCheckCreateOrderQuantity,
+    },
+  });
+```
+
+#### Simulating an Error
+
+In `./serverless-pro/lib/app/stateless/src/shared/random-errors.ts` we have a function that will throw errors randomly
+
+```ts
+// this is a helper function that will throw a random error
+// to test out rollbacks during deployment.
+export const randomErrors = (enabled: string | undefined): void | Error => {
+  if (enabled?.toLowerCase() === "false") return;
+
+  if (Math.random() > 0.1) {
+    throw new Error("spurious error!!!");
+  }
+};
+```
+
+To use this, we update the configuration file to set the `randomErrorsEnabled` value to `true`
+
+```ts
+stateless: {
+  lambdaMemorySize: 128,
+  canaryNotificationEmail: 'your-email@gmail.com',
+  randomErrorsEnabled: 'true', // <-- here
+},
+```
+
+### Feature Flags using AWS AppConfig
+
+> Feature Toggles (often also refered to as Feature Flags) are a powerful technique, allowing teams to modify system behavior without changing code. They fall into various usage categories, and it’s important to take that categorization into account when implementing and managing toggles. Toggles introduce complexity. We can keep that complexity in check by using smart toggle implementation practices and appropriate tools to manage our toggle configuration, but we should also aim to constrain the number of toggles in our system. - [https://martinfowler.com/articles/feature-toggles.html](https://martinfowler.com/articles/feature-toggles.html)
+
+We are going to look at feature flags, which broadly fit into the following four categories:
+
+1. **Release Flags** - These allow engineering teams and product owners to decide on when to release new functionality to users or not which have already been deployed to production through continuous delivery.
+2. **Operational Flags** - These flags allow teams to turn on/off features from an operational standpoint, potentially for maintenance, or e.g. if a system is overloaded
+3. **Permission Flags** - Allow you to restrict functionality to a subset of the overall user base, potentially based on groups, e.g. only allowing engineering or support teams access to certain features
+4. **Experimental Flags** - Allow experiments with new functionality to see how it fares with end users, e.g. A/B testing
+
+#### Benefits of using Flags
+
+Feature flags allow us to decouple the deployment and release of new code/features, allowing teams to utilize trunk-based development with continuous delivery to push code changes to production regularly, without the historic approach of feature-branching, merge conflicts, and big bang releases
+
+#### Implementing AWS AppConfig for Feature Flags
+
+We'll start by adding the AWS AppConfig Lambda Layer extension to our functions, which will essentially run a second process alongside our lambda container. This process will regularly poll for feature flag changes and populate a cache without us having to do it directly in the handler code or in the module outside the handler function.
+
+1. Configure the AWS AppConfig extension as a layer of the Lambda function
+2. To access configuration data, the function calls the AWS AppConfig extension at an HTTP endpoint running on `localhost:2772`
+3. The extension maintains a local cache of the configuration data. If the data isn't in the cache, the extension calls AppConfig to get the data
+4. Upon receiving the data, the extension stores it in the local cache and passes it to the lambda function
+5. The AppConfig Lambda extension periodically checks for updates to AppConfig data. Each time the Lambda function is invoked, the extension checks the elapsed time since the last retrieval. If the elapsed time is greater than the configured poll interval, the extension calls APpConfig to check for new data and updates the cache if there's been a change, resetting the elapsed time.
+
+#### Adding the AppConfig Extension Lambda Layer
+
+We begin by passing the configuration into our `serverless-pro/lib/pipeline/pipeline-config/pipeline-config.ts` file
+
+```ts
+shared: {
+  appConfigLambdaLayerArn:
+    'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+},
+```
+
+We then pass that configuration to our `stateless-stack.ts` file to add the layer to each of the Lambda functions through the `ProgressiveLambda` L3 construct as shown below:
+
+```ts
+// ...
+// get the correct lambda layer extension for our region (props)
+const appConfigLambdaLayerExtension = lambda.LayerVersion.fromLayerVersionArn(
+  this,
+  "AppConfigExtension",
+  props.appConfigLambdaLayerArn
+);
+// ...
+
+const { alias: createOrderLambdaAlias, lambda: createOrderLambda } =
+  new ProgressiveLambda(this, "CreateOrderLambda", {
+    // ...
+    layers: [appConfigLambdaLayerExtension],
+    //...
+    environment: {
+      ...appConfigEnvironment,
+      ...lambdaPowerToolsConfig,
+      FLAG_CREATE_ORDER_ALLOW_LIST: createOrderAllowList,
+      FLAG_PREVENT_CREATE_ORDERS: opsPreventCreateOrders,
+      FLAG_CHECK_CREATE_ORDER_QUANTITY: releaseCheckCreateOrderQuantity,
+    },
+  });
+```
+
+#### Creating the Feature Flags
+
+We now have `feature-flags.ts` stack which creates a specific independent stack for feature flags outside of the main application and infrastructure
+
+```ts
+import * as cdk from "aws-cdk-lib";
+
+import { FeatureFlagConfig, environments } from "./config/config";
+
+import { AppConfigApplication } from "../../constructs";
+import { Aspects } from "aws-cdk-lib";
+import { AwsSolutionsChecks } from "cdk-nag";
+import { Construct } from "constructs";
+import { NagSuppressions } from "cdk-nag";
+import { Stage } from "lib/types";
+import { schema } from "./config/config.schema";
+
+export interface FeatureFlagStackProps extends cdk.StackProps {
+  stageName: string;
+}
+
+export class FeatureFlagStack extends cdk.Stack {
+  public readonly appConfigApplicationRef: string;
+  public readonly appConfigEnvName: string;
+  public readonly appConfigEnvRef: string;
+  public readonly appConfigConfigurationProfileRef: string;
+
+  constructor(scope: Construct, id: string, props: FeatureFlagStackProps) {
+    super(scope, id, props);
+
+    const stage = [Stage.featureDev, Stage.staging, Stage.prod].includes(
+      props.stageName as Stage
+    )
+      ? props.stageName
+      : Stage.develop;
+
+    const appConfigApplication = new AppConfigApplication(
+      this,
+      "AppConfigApplication",
+      {
+        stageName: props.stageName,
+        growthFactor: 100,
+        deploymentDurationInMinutes: 0,
+        growthType: "LINEAR",
+        description: `${props.stageName} application feature flags`,
+        validatorSchema: JSON.stringify(schema),
+        content: JSON.stringify(environments[stage as keyof FeatureFlagConfig]),
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }
+    );
+
+    this.appConfigApplicationRef = appConfigApplication.appilcation.ref;
+    this.appConfigEnvName = appConfigApplication.appilcationEnvironment.name;
+    this.appConfigConfigurationProfileRef =
+      appConfigApplication.appilcationConfigurationProfile.ref;
+    this.appConfigEnvRef = appConfigApplication.appilcationEnvironment.ref;
+
+    // cdk nag check and suppressions
+    Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));
+    NagSuppressions.addStackSuppressions(this, []);
+  }
+}
+```
+
+This uses the `AppConfigApplication` L3 construct. The properties passed in indicate that the feature flags will be deployed instantly per stage with a `deploymentDurationInMinutes` value of 0.
+
+This L3 construct creates relevant items for each of the stages:
+
+- AppConfig Application
+- AppConfig Environment
+- AppConfig Configuration Profile
+- AppConfig Hosted Configuration Version
+
+This removes the cognitive load from the developers so that they can focus on the feature flags themselves.
+
+#### Feature Flag Configuration and Validation
+
+Below is an example of the configuration of feature flags per environment (_serverless-pro/lib/app/feature-flags/config/config.ts_)
+
+```ts
+// https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-creating-configuration-and-profile.html#appconfig-type-reference-feature-flags
+
+import { FeatureFlags } from "./FeatureFlags";
+import { Stage } from "../../../types";
+
+export type FeatureFlagConfig = Record<Stage, FeatureFlags>;
+
+export const environments: FeatureFlagConfig = {
+  // allow developers to spin up a quick branch for a given PR they are working on e.g. pr-124
+  // this is done with a npm run develop, not through the pipeline, and uses the values in .env
+  [Stage.develop]: {
+    flags: {
+      createOrderAllowList: {
+        name: "createOrderAllowList",
+        description:
+          "When enabled it limits the allow list to a select set of groups",
+        attributes: {
+          allow: {
+            constraints: {
+              type: "string",
+              enum: ["beta-group", "qa"],
+              required: true,
+            },
+          },
+        },
+      },
+      releaseCheckCreateOrderQuantity: {
+        name: "releaseCheckCreateOrderQuantity",
+        description:
+          "A release flag for the create order check on max quantity",
+        attributes: {
+          limit: {
+            constraints: {
+              type: "number",
+              required: true,
+            },
+          },
+        },
+        _deprecation: {
+          status: "planned",
+        },
+      },
+      opsPreventCreateOrders: {
+        name: "opsPreventCreateOrders",
+        description: "Operational toggle to prevent the creation of new orders",
+      },
+      opsLimitListOrdersResults: {
+        name: "opsLimitListOrdersResults",
+        description: "Operation toggle to limit the results on list orders",
+        attributes: {
+          limit: {
+            constraints: {
+              type: "number",
+              required: true,
+            },
+          },
+        },
+      },
+    },
+    values: {
+      createOrderAllowList: {
+        enabled: false,
+        allow: "qa",
+      },
+      releaseCheckCreateOrderQuantity: {
+        enabled: true,
+        limit: 10,
+      },
+      opsPreventCreateOrders: {
+        enabled: false,
+      },
+      opsLimitListOrdersResults: {
+        enabled: true,
+        limit: 10,
+      },
+    },
+    version: "1",
+  },
+  // [Stage.staging]: {...}
+  // [Stage.prod]: {...}
+};
+```
+
+As we can see, feature flags are defined per stage, similar to the earlier example of the pipeline config. This again allows us to have separate configuration values per stage.
+
+> **Note**: AWS AppConfig also allows us to validate the Feature Flags
+> configuration using JSON Schema which we do with
+> the file _serverless-pro/lib/app/feature-flags/config/config.schema.ts_.
+> This ensures that we only allow valid values for our flags
+> to reduce the chance of human error.
+
+#### Retrieving and Using Feature Flags in our Application Code
+
+Now that the feature flags are deployed through the CI/CD process, we can access them in the handler code. This is done first by pulling in the correct configuration in our Lambda (e.g. create-order.ts)
+
+```ts
+// get the config values from process env
+const application = config.get("appConfig.appConfigApplicationId");
+const environment = config.get("appConfig.appConfigEnvironmentId");
+const configuration = config.get("appConfig.appConfigConfigurationId");
+const { preventCreateOrder, checkCreateOrderQuantity } = config.get("flags");
+```
+
+Then we can retrieve the specific feature flags we need using the following:
+
+```ts
+// get feature flags from appconfig
+const flags: Flags | Record<string, unknown> = (await getFeatureFlags(
+  application,
+  environment,
+  configuration,
+  [preventCreateOrder, checkCreateOrderQuantity]
+)) as Flags;
+```
+
+This calls our `getFeatureFlags` function, which calls the Lambda layer extension with the correct flags properties to pull the values from the cache.
+
+```ts
+export const generateAppConfigExtensionUrl = (
+  application: string,
+  environment: string,
+  configuration: string,
+  optionalFlags?: string[]
+): string => {
+  let url = `http://localhost:2772/applications/${application}/environments/${environment}/configurations/${configuration}`;
+
+  if (optionalFlags?.length) {
+    url += "?";
+    optionalFlags.forEach((flag: string) => (url += `flag=${flag}&`));
+    url = url.substring(0, url.length - 1);
+  }
+  return url;
+};
+
+export const getFeatureFlags = async (
+  application: string,
+  environment: string,
+  configuration: string,
+  optionalFlags?: string[]
+): Promise<Flags | Record<string, unknown>> => {
+  const url = generateAppConfigExtensionUrl(
+    application,
+    environment,
+    configuration,
+    optionalFlags
+  );
+  const config = await axios.get(url);
+  return config.data;
+};
+```
+
+Finally, we can use the feature flags as shown below:
+
+```ts
+// we use a flag here to prevent the creation of new orders from an operational sense
+if (flags.opsPreventCreateOrders.enabled) {
+  logger.error(
+    `opsPreventCreateOrders enabled so preventing new order creation`
+  );
+  throw new Error(
+    "The creation of orders is currently on hold for maintenance"
+  );
+}
+```
+
+#### Advantages of Deploying Feature Flags through the Pipeline
+
+- Deploying feature flags through the pipeline allows us to test the values using Jest snapshots
+- We can validate the config values using JSON schema
+- This seeds the relevant flags for ephemeral environments too
+- We can validate feature flag changes via unit, integration and acceptance tests when pushing through the pipeline
+- We get full audits of changes via source control
+- We can add an approval step to the deployment of the feature flags
