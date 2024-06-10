@@ -11,12 +11,16 @@ export interface EnvironmentConfig {
   stateless: {
     lambdaMemorySize: number;
     canaryNotificationEmail: string;
+    randomErrorsEnabled: string;
   };
   client: {
     bucketName: string;
   };
   shared: {
     domainName: string;
+    appConfigLambdaLayerArn: string;
+    powerToolsMetricsNamespace: string;
+    powerToolServiceName: string;
   };
 }
 

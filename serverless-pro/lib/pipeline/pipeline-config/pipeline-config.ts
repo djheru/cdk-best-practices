@@ -44,6 +44,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || '128'),
       canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+      randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
     },
     client: {
       bucketName: (
@@ -52,6 +53,11 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     },
     shared: {
       domainName: 'stonktrader.io',
+      appConfigLambdaLayerArn: process.env
+        .APP_CONFIG_LAMBDA_LAYER_ARN as string,
+      powerToolsMetricsNamespace: process.env
+        .POWERTOOLS_METRICS_NAMESPACE as string,
+      powerToolServiceName: process.env.POWERTOOLS_SERVICE_NAME as string,
     },
     stageName: pascalCase(process.env.FEATURE || Stage.feature).replace(
       /_/g,
@@ -67,12 +73,17 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: 128,
       canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+      randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
     },
     client: {
       bucketName: 'serverless-pro-client-dev-bucket-' + Account.dev,
     },
     shared: {
       domainName: 'stonktrader.io',
+      appConfigLambdaLayerArn:
+        'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+      powerToolServiceName: 'serverless-pro-orders-service-dev',
+      powerToolsMetricsNamespace: 'ServerlessProDev',
     },
     stageName: Stage.dev,
   },
@@ -88,12 +99,17 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: 512,
       canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+      randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
     },
     client: {
       bucketName: 'serverless-pro-client-staging-bucket-' + Account.staging,
     },
     shared: {
       domainName: 'stonktrader.io',
+      appConfigLambdaLayerArn:
+        'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+      powerToolServiceName: 'serverless-pro-orders-service-staging',
+      powerToolsMetricsNamespace: 'ServerlessProStaging',
     },
     stageName: Stage.staging,
   },
@@ -109,12 +125,17 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: 1024,
       canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
+      randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
     },
     client: {
       bucketName: 'serverless-pro-client-prod-bucket-' + Account.prod,
     },
     shared: {
       domainName: 'stonktrader.io',
+      appConfigLambdaLayerArn:
+        'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+      powerToolServiceName: 'serverless-pro-orders-service-prod',
+      powerToolsMetricsNamespace: 'ServerlessProProd',
     },
     stageName: Stage.prod,
   },

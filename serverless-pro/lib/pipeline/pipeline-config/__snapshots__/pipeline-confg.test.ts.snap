@@ -10,7 +10,10 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
     "region": "us-east-1",
   },
   "shared": {
+    "appConfigLambdaLayerArn": "arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46",
     "domainName": "stonktrader.io",
+    "powerToolServiceName": "serverless-pro-orders-service-dev",
+    "powerToolsMetricsNamespace": "ServerlessProDev",
   },
   "stageName": "dev",
   "stateful": {
@@ -20,6 +23,7 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 128,
+    "randomErrorsEnabled": "false",
   },
 }
 `;
@@ -34,7 +38,10 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
     "region": "us-east-1",
   },
   "shared": {
+    "appConfigLambdaLayerArn": "arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46",
     "domainName": "stonktrader.io",
+    "powerToolServiceName": "serverless-pro-orders-service-prod",
+    "powerToolsMetricsNamespace": "ServerlessProProd",
   },
   "stageName": "prod",
   "stateful": {
@@ -44,6 +51,7 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 1024,
+    "randomErrorsEnabled": "false",
   },
 }
 `;
@@ -58,7 +66,10 @@ exports[`pipeline-config should return the correct config for staging 1`] = `
     "region": "us-east-1",
   },
   "shared": {
+    "appConfigLambdaLayerArn": "arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46",
     "domainName": "stonktrader.io",
+    "powerToolServiceName": "serverless-pro-orders-service-staging",
+    "powerToolsMetricsNamespace": "ServerlessProStaging",
   },
   "stageName": "staging",
   "stateful": {
@@ -68,6 +79,7 @@ exports[`pipeline-config should return the correct config for staging 1`] = `
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 512,
+    "randomErrorsEnabled": "false",
   },
 }
 `;

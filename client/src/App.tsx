@@ -1,23 +1,23 @@
-import './App.css';
+import "./App.css";
 
-import { Fragment, useEffect, useState } from 'react';
-import { IConfig, IOrder } from './types';
+import { Fragment, useEffect, useState } from "react";
+import { IConfig, IOrder } from "./types";
 
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import Button from '@mui/material/Button';
-import CloseIcon from '@mui/icons-material/Close';
-import Container from '@mui/material/Container';
-import CreateOrderModal from './components/CreateOrderModal';
-import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import LinearProgress from '@mui/material/LinearProgress';
-import ReportIcon from '@mui/icons-material/Report';
-import Snackbar from '@mui/material/Snackbar';
-import StorefrontIcon from '@mui/icons-material/Storefront';
-import Typography from '@mui/material/Typography';
-import ViewOrdersTable from './components/ViewOrdersTable';
-import { getConfig } from './services/config-service';
-import { listOrders } from './services/orders-service';
+import AddCircleIcon from "@mui/icons-material/AddCircle";
+import CloseIcon from "@mui/icons-material/Close";
+import ReportIcon from "@mui/icons-material/Report";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
+import Snackbar from "@mui/material/Snackbar";
+import Typography from "@mui/material/Typography";
+import CreateOrderModal from "./components/CreateOrderModal";
+import ViewOrdersTable from "./components/ViewOrdersTable";
+import { getConfig } from "./services/config-service";
+import { listOrders } from "./services/orders-service";
 
 function App() {
   const [config, setConfig] = useState<IConfig>();
@@ -26,6 +26,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [openCreateOrder, setCreateOrderOpen] = useState(false);
   const [openSuccessSnackBar, setOpenSuccessSnackBar] = useState(false);
+  const [openErrorSnackBar, setOpenErrorSnackBar] = useState(false);
+  const [openErrorSnackBarMessage, setOpenErrorSnackBarMessage] = useState("");
 
   const handleCreateOrderClose = async () => {
     try {
@@ -45,15 +47,23 @@ function App() {
 
       // after closing the create order modal,
       // get the latest data and set the orders state for the table to refresh
-      const orders: IOrder[] = await listOrders(config?.api || '');
+      const orders: IOrder[] = await listOrders(config?.api || "");
 
       setLoading(false);
       setOrders(orders);
       setOpenSuccessSnackBar(true);
-    } catch (error) {
+      setOpenErrorSnackBar(false);
+    } catch (error: any) {
       setIsError(true);
       setLoading(false);
+      setOpenErrorSnackBar(true);
+      setOpenErrorSnackBarMessage(error.message);
     }
+  };
+
+  const handleCreateOrderError = async (error: string) => {
+    setOpenErrorSnackBar(true);
+    setOpenErrorSnackBarMessage(error);
   };
 
   const handleCreateOrder = () => {
@@ -74,9 +84,12 @@ function App() {
         const orders: IOrder[] = await listOrders(config?.api);
         setOrders(orders);
         setLoading(false);
-      } catch (error) {
+        setOpenErrorSnackBar(false);
+      } catch (error: any) {
         setIsError(true);
         setLoading(false);
+        setOpenErrorSnackBar(true);
+        setOpenErrorSnackBarMessage(error.message);
       }
     }
     fetchData();
@@ -87,7 +100,7 @@ function App() {
       <header data-test="app-header" className="App-header">
         <Container
           data-test="create-order-button-container"
-          sx={{ marginTop: '20px' }}
+          sx={{ marginTop: "20px" }}
           maxWidth="lg"
         >
           <Typography data-test="app-header-title" variant="h6" gutterBottom>
@@ -106,7 +119,7 @@ function App() {
 
       <Container
         data-test="create-order-button-container"
-        sx={{ minHeight: '80px' }}
+        sx={{ minHeight: "80px" }}
         maxWidth="lg"
       >
         <Button
@@ -134,7 +147,7 @@ function App() {
 
       <LinearProgress
         data-test="progress-loader"
-        style={{ display: loading ? undefined : 'none' }}
+        style={{ display: loading ? undefined : "none" }}
         variant="indeterminate"
         color="primary"
       />
@@ -150,17 +163,22 @@ function App() {
         handleCreateOrderSuccessfull={() =>
           handleCreateOrderSuccessfull(config)
         }
-        api={config?.api || ''}
+        handleCreateOrderError={handleCreateOrderError}
+        api={config?.api || ""}
       />
       <Snackbar
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         open={openSuccessSnackBar}
-        autoHideDuration={3000}
+        autoHideDuration={5000}
         onClose={() => setOpenSuccessSnackBar(false)}
         message="Order Created"
         action={
           <Fragment>
-            <Button color="secondary" size="small" onClick={() => {}}>
+            <Button
+              color="secondary"
+              size="small"
+              onClick={() => setOpenSuccessSnackBar(false)}
+            >
               Close
             </Button>
             <IconButton
@@ -168,6 +186,32 @@ function App() {
               color="inherit"
               sx={{ p: 0.5 }}
               onClick={() => setOpenSuccessSnackBar(false)}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Fragment>
+        }
+      />
+      <Snackbar
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        open={openErrorSnackBar}
+        autoHideDuration={3000}
+        onClose={() => setOpenErrorSnackBar(false)}
+        message={openErrorSnackBarMessage}
+        action={
+          <Fragment>
+            <Button
+              color="primary"
+              size="small"
+              onClick={() => setOpenErrorSnackBar(false)}
+            >
+              Close
+            </Button>
+            <IconButton
+              aria-label="close"
+              color="inherit"
+              sx={{ p: 0.5 }}
+              onClick={() => setOpenErrorSnackBar(false)}
             >
               <CloseIcon />
             </IconButton>
