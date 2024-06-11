@@ -1,6 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
-import { Cache } from 'aws-cdk-lib/aws-codebuild';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
+import {
+  Cache,
+  ComputeType,
+  LinuxBuildImage,
+  LocalCacheMode,
+} from 'aws-cdk-lib/aws-codebuild';
 import * as pipelines from 'aws-cdk-lib/pipelines';
 import { pascalCase } from 'change-case';
 import { Construct } from 'constructs';
@@ -30,14 +34,27 @@ export class PipelineStack extends cdk.Stack {
         crossAccountKeys: true,
         selfMutation: true,
         codeBuildDefaults: {
-          cache: Cache.bucket(new Bucket(this, 'CodeBuildCache')),
+          // https://aws.amazon.com/blogs/devops/improve-build-performance-and-save-time-using-local-caching-in-aws-codebuild/
+          cache: Cache.local(LocalCacheMode.SOURCE),
+          buildEnvironment: {
+            computeType: ComputeType.MEDIUM,
+            buildImage: LinuxBuildImage.STANDARD_7_0,
+          },
         },
         assetPublishingCodeBuildDefaults: {
-          cache: Cache.bucket(new Bucket(this, 'AssetCache')),
+          cache: Cache.local(LocalCacheMode.SOURCE),
+          buildEnvironment: {
+            computeType: ComputeType.MEDIUM,
+            buildImage: LinuxBuildImage.STANDARD_7_0,
+          },
         },
         pipelineName: 'serverless-pro-pipeline',
         synth: new pipelines.CodeBuildStep('Synth', {
-          cache: Cache.bucket(new Bucket(this, 'PipeLineCache')),
+          buildEnvironment: {
+            computeType: ComputeType.MEDIUM,
+            buildImage: LinuxBuildImage.STANDARD_7_0,
+          },
+          cache: Cache.local(LocalCacheMode.SOURCE),
           input: pipelines.CodePipelineSource.connection(
             'djheru/cdk-best-practices',
             'main',

@@ -4,9 +4,11 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
+import { SimpleTable } from '../../constructs';
 
 export interface StatefulStackProps extends cdk.StackProps {
   assetsBucketName: string;
+  stageName: string;
   bucketName: string;
 }
 
@@ -35,17 +37,14 @@ export class StatefulStack extends cdk.Stack {
     });
 
     // create the dynamodb table
-    this.table = new dynamodb.Table(this, 'Table', {
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: false,
-      contributorInsightsEnabled: true,
+    this.table = new SimpleTable(this, 'Table', {
+      stageName: props.stageName,
       removalPolicy: RemovalPolicy.DESTROY,
       partitionKey: {
         name: 'id',
         type: dynamodb.AttributeType.STRING,
       },
-    });
+    }).table;
 
     // add the global secondary index which allows us to query
     // all stores based on the record type

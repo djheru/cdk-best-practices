@@ -43,11 +43,11 @@ export class FeatureFlagStack extends cdk.Stack {
       }
     );
 
-    this.appConfigApplicationRef = appConfigApplication.appilcation.ref;
-    this.appConfigEnvName = appConfigApplication.appilcationEnvironment.name;
+    this.appConfigApplicationRef = appConfigApplication.application.ref;
+    this.appConfigEnvName = appConfigApplication.applicationEnvironment.name;
     this.appConfigConfigurationProfileRef =
-      appConfigApplication.appilcationConfigurationProfile.ref;
-    this.appConfigEnvRef = appConfigApplication.appilcationEnvironment.ref;
+      appConfigApplication.applicationConfigurationProfile.ref;
+    this.appConfigEnvRef = appConfigApplication.applicationEnvironment.ref;
 
     // cdk nag check and suppressions
     Aspects.of(this).add(new AwsSolutionsChecks({ verbose: true }));

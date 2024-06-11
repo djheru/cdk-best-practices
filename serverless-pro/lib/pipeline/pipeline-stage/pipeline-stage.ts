@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 
 import { Construct } from 'constructs';
 import { ClientStack } from '../../app/client/client-stack';
+import { FeatureFlagStack } from '../../app/feature-flags/feature-flags';
 import { StatefulStack } from '../../app/stateful/stateful-stack';
 import { StatelessStack } from '../../app/stateless/stateless-stack';
 import { EnvironmentConfig } from '../pipeline-types/pipeline-types';
@@ -16,7 +17,14 @@ export class PipelineStage extends cdk.Stage {
   constructor(scope: Construct, id: string, props: EnvironmentConfig) {
     super(scope, id, props);
 
+    // this is our stage which can be deployed for various envs i.e. feature-dev, staging & prod
+    // note: we will pass through the given environment props when adding the stage
+    const featureFlagStack = new FeatureFlagStack(this, 'FeatureFlagStack', {
+      stageName: props.stageName,
+    });
+
     const statefulStack = new StatefulStack(this, 'StatefulStack', {
+      stageName: props.stageName,
       bucketName: props.stateful.bucketName,
       assetsBucketName: props.stateful.assetsBucketName,
     });
@@ -33,6 +41,15 @@ export class PipelineStage extends cdk.Stage {
       stageName: props.stageName,
       domainName: props.shared.domainName,
       canaryNotificationEmail: props.stateless.canaryNotificationEmail,
+      randomErrorsEnabled: props.stateless.randomErrorsEnabled,
+      appConfigLambdaLayerArn: props.shared.appConfigLambdaLayerArn,
+      appConfigApplicationRef: featureFlagStack.appConfigApplicationRef,
+      appConfigConfigurationProfileRef:
+        featureFlagStack.appConfigConfigurationProfileRef,
+      appConfigEnvName: featureFlagStack.appConfigEnvName,
+      appConfigEnvRef: featureFlagStack.appConfigEnvRef,
+      powerToolsServiceName: props.shared.powerToolServiceName,
+      powerToolsMetricsNamespace: props.shared.powerToolsMetricsNamespace,
     });
 
     const clientStack = new ClientStack(this, 'ClientStack', {

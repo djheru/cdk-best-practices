@@ -14,7 +14,7 @@ interface AppConfigApplicationProps
   extends Pick<CfnHostedConfigurationVersionProps, 'content' | 'description'> {
   stageName: string;
   removalPolicy: RemovalPolicy;
-  deploymentDurationMinutes: number;
+  deploymentDurationInMinutes: number;
   growthFactor: number;
   growthType: 'EXPONENTIAL' | 'LINEAR';
   description: string;
@@ -81,7 +81,7 @@ export class AppConfigApplication extends Construct {
       this,
       id + 'DeploymentStrategy',
       {
-        deploymentDurationInMinutes: props.deploymentDurationMinutes,
+        deploymentDurationInMinutes: props.deploymentDurationInMinutes,
         growthFactor: props.growthFactor,
         name: `${props.stageName}DeploymentStrategy`,
         description: `${props.stageName} Deployment Strategy`,
