@@ -3,7 +3,7 @@
 exports[`pipeline-config should return the correct config for feature-dev 1`] = `
 {
   "client": {
-    "bucketName": "serverless-pro-client-dev-bucket-190423078218",
+    "bucketName": "serverless-client-dev-bucket-190423078218",
   },
   "env": {
     "account": "190423078218",
@@ -12,13 +12,13 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
   "shared": {
     "appConfigLambdaLayerArn": "arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46",
     "domainName": "stonktrader.io",
-    "powerToolServiceName": "serverless-pro-orders-service-dev",
+    "powerToolServiceName": "serverless-orders-service-dev",
     "powerToolsMetricsNamespace": "ServerlessProDev",
   },
   "stageName": "dev",
   "stateful": {
-    "assetsBucketName": "serverless-pro-lg-dev-bucket-190423078218",
-    "bucketName": "serverless-pro-dev-bucket-190423078218",
+    "assetsBucketName": "serverless-lg-dev-bucket-190423078218",
+    "bucketName": "serverless-dev-bucket-190423078218",
   },
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
@@ -31,7 +31,7 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
 exports[`pipeline-config should return the correct config for prod 1`] = `
 {
   "client": {
-    "bucketName": "serverless-pro-client-prod-bucket-276541279630",
+    "bucketName": "serverless-client-prod-bucket-276541279630",
   },
   "env": {
     "account": "276541279630",
@@ -40,13 +40,13 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
   "shared": {
     "appConfigLambdaLayerArn": "arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46",
     "domainName": "stonktrader.io",
-    "powerToolServiceName": "serverless-pro-orders-service-prod",
+    "powerToolServiceName": "serverless-orders-service-prod",
     "powerToolsMetricsNamespace": "ServerlessProProd",
   },
   "stageName": "prod",
   "stateful": {
-    "assetsBucketName": "serverless-pro-lg-prod-bucket-276541279630",
-    "bucketName": "serverless-pro-prod-bucket-276541279630",
+    "assetsBucketName": "serverless-lg-prod-bucket-276541279630",
+    "bucketName": "serverless-prod-bucket-276541279630",
   },
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
@@ -59,7 +59,7 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
 exports[`pipeline-config should return the correct config for staging 1`] = `
 {
   "client": {
-    "bucketName": "serverless-pro-client-staging-bucket-228708224037",
+    "bucketName": "serverless-client-staging-bucket-228708224037",
   },
   "env": {
     "account": "228708224037",
@@ -68,13 +68,13 @@ exports[`pipeline-config should return the correct config for staging 1`] = `
   "shared": {
     "appConfigLambdaLayerArn": "arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46",
     "domainName": "stonktrader.io",
-    "powerToolServiceName": "serverless-pro-orders-service-staging",
+    "powerToolServiceName": "serverless-orders-service-staging",
     "powerToolsMetricsNamespace": "ServerlessProStaging",
   },
   "stageName": "staging",
   "stateful": {
-    "assetsBucketName": "serverless-pro-lg-staging-bucket-228708224037",
-    "bucketName": "serverless-pro-staging-bucket-228708224037",
+    "assetsBucketName": "serverless-lg-staging-bucket-228708224037",
+    "bucketName": "serverless-staging-bucket-228708224037",
   },
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
