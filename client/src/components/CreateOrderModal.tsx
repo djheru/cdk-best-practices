@@ -160,7 +160,7 @@ export default function CreateOrderModal({
               label="Product"
               onChange={handleProductChange}
             >
-              <MenuItem value={"MacPro"}>Apple Macbook Pro</MenuItem>
+              <MenuItem value={"MacPro"}>Apple Macbook Stack</MenuItem>
               <MenuItem value={"AirPods"}>Apple Airpods</MenuItem>
               <MenuItem value={"MacAir"}>Apple Macbook Air</MenuItem>
             </Select>

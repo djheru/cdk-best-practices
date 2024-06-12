@@ -1,8 +1,8 @@
 {
-  "name": "serverless-pro",
+  "name": "serverless-stack",
   "version": "0.1.0",
   "bin": {
-    "serverless-pro": "bin/serverless-pro.js"
+    "serverless-stack": "bin/serverless-stack.js"
   },
   "scripts": {
     "lint": "eslint --ext .ts .",
@@ -16,7 +16,7 @@
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
     "test:clear": "jest --clearCache",
-    "predeploy:dev": "cd ../client/ && npm run build && cd ../serverless-pro/",
+    "predeploy:dev": "cd ../client/ && npm run build && cd ../serverless-stack/",
     "deploy:pipeline": "cdk deploy ServerlessPro ",
     "remove:pipeline": "cdk destroy ServerlessPro ",
     "deploy:feature": "cdk deploy ServerlessPro/FeatureIssue123/StatefulStack ServerlessPro/FeatureIssue123/StatefulStack",

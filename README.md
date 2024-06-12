@@ -243,7 +243,7 @@ Then, we can pull in the required environment variables at build time within the
     },
     stateful: {
       bucketName:
-        `serverless-pro-${process.env.PR_NUMBER}-bucket`.toLowerCase(),
+        `serverless-stack-${process.env.PR_NUMBER}-bucket`.toLowerCase(),
     },
     stateless: {
       lambdaMemorySize: parseInt(process.env.LAMBDA_MEM_SIZE || "128"),
@@ -463,7 +463,7 @@ Now we can add the commands to the package.json scripts
 }
 ```
 
-Now we can run `npm run prepare` to set up husky in the root of the project (inside of the `serverless-pro` application directory)
+Now we can run `npm run prepare` to set up husky in the root of the project (inside of the `serverless-stack` application directory)
 
 Then we can run the following (run from the project root)
 
@@ -992,7 +992,7 @@ For more information on Amazon Synthetic Canaries please see the following deep 
 
 #### API Canary
 
-In the same manner, we set up a canary to make requests directly to the API to ensure proper functioning. In `./serverless-pro/lib/app/stateless/src/canaries/api-canary/nodejs/node_modules/index.js`, we can see the code to configure a request to `GET /orders` and verify that the request was successful.
+In the same manner, we set up a canary to make requests directly to the API to ensure proper functioning. In `./serverless-stack/lib/app/stateless/src/canaries/api-canary/nodejs/node_modules/index.js`, we can see the code to configure a request to `GET /orders` and verify that the request was successful.
 
 ---
 
@@ -1087,7 +1087,7 @@ export class Api extends Construct {
       // custom props
       description: props.description
         ? props.description
-        : `Serverless Pro API ${props.stageName}`,
+        : `Serverless Stack API ${props.stageName}`,
       deploy: props.deploy ? props.deploy : true,
     });
   }
@@ -1130,7 +1130,7 @@ this.api = new apigw.RestApi(this, id + "Api", {
   // custom props
   description: props.description
     ? props.description
-    : `Serverless Pro API ${props.stageName}`,
+    : `Serverless Stack API ${props.stageName}`,
   deploy: props.deploy ? props.deploy : true,
 });
 ```
@@ -1140,7 +1140,7 @@ We can now utilise this custom L3 Api construct in code multiple times as shown 
 ```ts
 // create the rest api
 this.ordersApi = new Api(this, "Api", {
-  description: `Serverless Pro API ${props.stageName}`,
+  description: `Serverless Stack API ${props.stageName}`,
   stageName: props.stageName,
   deploy: true,
 }).api;
@@ -1158,7 +1158,7 @@ The [Lambda Powertools for Typescript](https://awslabs.github.io/aws-lambda-powe
 - Tracing - Decorators and utilities to trace lambda function handlers, both synchronous and async
 - Metrics - Custom metrics created asynchronously via CloudWatch Embdedded Metric Format (EMF) - This is what we use to alert on errors for progressive deployments
 
-We can see an example of the usage in `./serverless-pro/lib/app/stateless/src/handlers/list-orders/list-orders.ts`
+We can see an example of the usage in `./serverless-stack/lib/app/stateless/src/handlers/list-orders/list-orders.ts`
 
 ```ts
 import { Logger, injectLambdaContext } from "@aws-lambda-powertools/logger";
@@ -1445,7 +1445,7 @@ const { alias: createOrderLambdaAlias, lambda: createOrderLambda } =
 
 #### Simulating an Error
 
-In `./serverless-pro/lib/app/stateless/src/shared/random-errors.ts` we have a function that will throw errors randomly
+In `./serverless-stack/lib/app/stateless/src/shared/random-errors.ts` we have a function that will throw errors randomly
 
 ```ts
 // this is a helper function that will throw a random error
@@ -1496,7 +1496,7 @@ We'll start by adding the AWS AppConfig Lambda Layer extension to our functions,
 
 #### Adding the AppConfig Extension Lambda Layer
 
-We begin by passing the configuration into our `serverless-pro/lib/pipeline/pipeline-config/pipeline-config.ts` file
+We begin by passing the configuration into our `serverless-stack/lib/pipeline/pipeline-config/pipeline-config.ts` file
 
 ```ts
 shared: {
@@ -1609,7 +1609,7 @@ This removes the cognitive load from the developers so that they can focus on th
 
 #### Feature Flag Configuration and Validation
 
-Below is an example of the configuration of feature flags per environment (_serverless-pro/lib/app/feature-flags/config/config.ts_)
+Below is an example of the configuration of feature flags per environment (_serverless-stack/lib/app/feature-flags/config/config.ts_)
 
 ```ts
 // https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-creating-configuration-and-profile.html#appconfig-type-reference-feature-flags
@@ -1699,7 +1699,7 @@ As we can see, feature flags are defined per stage, similar to the earlier examp
 
 > **Note**: AWS AppConfig also allows us to validate the Feature Flags
 > configuration using JSON Schema which we do with
-> the file _serverless-pro/lib/app/feature-flags/config/config.schema.ts_.
+> the file _serverless-stack/lib/app/feature-flags/config/config.schema.ts_.
 > This ensures that we only allow valid values for our flags
 > to reduce the chance of human error.
 

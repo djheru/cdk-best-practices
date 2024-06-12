@@ -48,7 +48,7 @@ export class PipelineStack extends cdk.Stack {
             buildImage: LinuxBuildImage.STANDARD_7_0,
           },
         },
-        pipelineName: 'serverless-pro-pipeline',
+        pipelineName: 'serverless-stack-pipeline',
         synth: new pipelines.CodeBuildStep('Synth', {
           buildEnvironment: {
             computeType: ComputeType.MEDIUM,
@@ -62,7 +62,7 @@ export class PipelineStack extends cdk.Stack {
               connectionArn: `${cicdEnvironment.codestarConnectionArn}`,
             }
           ),
-          primaryOutputDirectory: './serverless-pro/cdk.out', // these are our immutable build assets
+          primaryOutputDirectory: './serverless-stack/cdk.out', // these are our immutable build assets
           // source stage
           commands: [
             // build the client once as the config will be passed to the s3 bucket
@@ -72,7 +72,7 @@ export class PipelineStack extends cdk.Stack {
             'ls -al',
             'ls -al ./build',
             // build the pipeline and apps
-            'cd ../serverless-pro/',
+            'cd ../serverless-stack/',
             'npm ci',
             'pwd',
             'ls -al lib/app/stateless/src',

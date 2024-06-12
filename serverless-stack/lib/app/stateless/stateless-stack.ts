@@ -107,7 +107,7 @@ export class StatelessStack extends cdk.Stack {
 
     // create the rest api
     this.ordersApi = new Api(this, 'Api', {
-      description: `Serverless Pro API ${props.stageName}`,
+      description: `Serverless Stack API ${props.stageName}`,
       deploy: true,
       stageName: props.stageName,
     }).api;

@@ -42,7 +42,7 @@ export class Api extends Construct {
       // custom props (stageName, description, deploy only)
       description: props.description
         ? props.description
-        : `Serverless Pro API ${props.stageName}`,
+        : `Serverless Stack API ${props.stageName}`,
       deploy: props.deploy !== undefined ? props.deploy : true,
     });
   }
