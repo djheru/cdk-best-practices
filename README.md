@@ -1501,7 +1501,7 @@ We begin by passing the configuration into our `serverless-stack/lib/pipeline/pi
 ```ts
 shared: {
   appConfigLambdaLayerArn:
-    'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+    'arn:aws:lambda:us-east-1:027255383542:layer:AWS-AppConfig-Extension-Arm64:61',
 },
 ```
 

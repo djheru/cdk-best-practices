@@ -81,7 +81,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     shared: {
       domainName: 'stonktrader.io',
       appConfigLambdaLayerArn:
-        'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+        'arn:aws:lambda:us-east-1:027255383542:layer:AWS-AppConfig-Extension-Arm64:61',
       powerToolServiceName: 'serverless-orders-service-dev',
       powerToolsMetricsNamespace: 'ServerlessProDev',
     },
@@ -107,7 +107,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     shared: {
       domainName: 'stonktrader.io',
       appConfigLambdaLayerArn:
-        'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+        'arn:aws:lambda:us-east-1:027255383542:layer:AWS-AppConfig-Extension-Arm64:61',
       powerToolServiceName: 'serverless-orders-service-staging',
       powerToolsMetricsNamespace: 'ServerlessProStaging',
     },
@@ -133,7 +133,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     shared: {
       domainName: 'stonktrader.io',
       appConfigLambdaLayerArn:
-        'arn:aws:lambda:eu-west-1:434848589818:layer:AWS-AppConfig-Extension-Arm64:46',
+        'arn:aws:lambda:us-east-1:027255383542:layer:AWS-AppConfig-Extension-Arm64:61',
       powerToolServiceName: 'serverless-orders-service-prod',
       powerToolsMetricsNamespace: 'ServerlessProProd',
     },
