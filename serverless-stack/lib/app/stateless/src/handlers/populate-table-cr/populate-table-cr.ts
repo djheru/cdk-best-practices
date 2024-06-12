@@ -1,23 +1,28 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  BatchWriteCommand,
-  DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import * as AWS from 'aws-sdk';
+
 import {
   CdkCustomResourceEvent,
   CdkCustomResourceHandler,
   CdkCustomResourceResponse,
 } from 'aws-lambda';
-import { v4 as uuid } from 'uuid';
 
-const dynamodbClient = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocumentClient.from(dynamodbClient, {
-  marshallOptions: { removeUndefinedValues: true },
+import { Logger } from '@aws-lambda-powertools/logger';
+import { LogLevel } from '@aws-lambda-powertools/logger/lib/cjs/types/Log';
+import { config } from '../../config';
+
+const { logLevel, logSampleRate } = config.get('shared.functions');
+
+const logger = new Logger({
+  serviceName: 'populate-table-cr',
+  logLevel: logLevel as LogLevel,
+  sampleRateValue: logSampleRate,
 });
+
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const physicalResourceId = 'OrdersConfigData';
 
 async function seedData(tableName: string): Promise<void> {
-  const params = {
+  const params: AWS.DynamoDB.DocumentClient.BatchWriteItemInput = {
     RequestItems: {
       [tableName]: [
         {
@@ -54,19 +59,14 @@ async function seedData(tableName: string): Promise<void> {
     },
   };
 
-  try {
-    const { UnprocessedItems = {} } = await ddbDocClient.send(
-      new BatchWriteCommand(params)
-    );
+  // batchwrite (upsert) the orders to the table
+  const { UnprocessedItems }: AWS.DynamoDB.DocumentClient.BatchWriteItemOutput =
+    await dynamoDb.batchWrite(params).promise();
 
-    if (Object.keys(UnprocessedItems).length > 0) {
-      throw new Error(
-        `The following were unprocessed: ${JSON.stringify(UnprocessedItems)}`
-      );
-    }
-  } catch (error) {
-    console.error('Error seeding data:', error);
-    throw error; // Rethrow the error if needed
+  if (Object.entries(UnprocessedItems as object).length) {
+    throw new Error(
+      `The following were unprocesssed - ${JSON.stringify(UnprocessedItems)}`
+    );
   }
 }
 
@@ -74,14 +74,10 @@ export const handler: CdkCustomResourceHandler = async (
   event: CdkCustomResourceEvent
 ): Promise<CdkCustomResourceResponse> => {
   try {
-    const correlationId = uuid();
-    const method = 'populate-orders.handler';
-    const prefix = `${correlationId} - ${method}`;
-
     let response: CdkCustomResourceResponse;
 
-    console.log(`${prefix} - started`);
-    console.log(`${prefix} - event request: ${JSON.stringify(event)}`);
+    logger.info('started');
+    logger.info(`event request: ${JSON.stringify(event)}`);
 
     const { ResourceProperties } = event;
     const { tableName } = ResourceProperties;
@@ -124,14 +120,17 @@ export const handler: CdkCustomResourceHandler = async (
         };
         break;
       default:
-        throw new Error(`${prefix} - event request type not found`);
+        throw new Error(`event request type not found`);
     }
 
-    console.log(`${prefix} - response: ${JSON.stringify(response)}`);
+    logger.info(`response: ${JSON.stringify(response)}`);
 
     return response;
   } catch (error) {
-    console.log(error);
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) errorMessage = error.message;
+    logger.error(errorMessage);
+
     return {
       Status: 'FAILED',
       Reason: JSON.stringify(error),

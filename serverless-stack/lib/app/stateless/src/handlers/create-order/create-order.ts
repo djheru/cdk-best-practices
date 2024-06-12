@@ -1,56 +1,102 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  PutCommandInput,
-  QueryCommand,
-} from '@aws-sdk/lib-dynamodb';
+import * as AWS from 'aws-sdk';
+
+import { Logger } from '@aws-lambda-powertools/logger';
+import { LogLevel } from '@aws-lambda-powertools/logger/lib/cjs/types/Log';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+import { MetricUnit, Metrics } from '@aws-lambda-powertools/metrics';
+import { logMetrics } from '@aws-lambda-powertools/metrics/middleware';
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
+import middy from '@middy/core';
 import {
   APIGatewayEvent,
   APIGatewayProxyHandler,
   APIGatewayProxyResult,
 } from 'aws-lambda';
+import { Flags, getFeatureFlags, headers, randomErrors } from '../../shared';
+
 import { v4 as uuid } from 'uuid';
-import { Order, Stores } from '../../types';
+import { config } from '../../config';
 
-const { TABLE_NAME: TableName, BUCKET_NAME: Bucket } = process.env;
+type Order = {
+  id: string;
+  quantity: number;
+  productId: string;
+  storeId: string;
+  created: string;
+  type: string;
+};
 
-const dynamodbClient = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocumentClient.from(dynamodbClient, {
-  marshallOptions: { removeUndefinedValues: true },
+type Store = {
+  id: string;
+  storeCode: string;
+  storeName: string;
+  type: string;
+};
+type Stores = Store[];
+
+const { logLevel, logSampleRate, logEvent } = config.get('shared.functions');
+
+const logger = new Logger({
+  serviceName: 'create-order',
+  logLevel: logLevel as LogLevel,
+  sampleRateValue: logSampleRate,
 });
 
-const s3Client = new S3Client({});
+const tracer = new Tracer();
+const metrics = new Metrics();
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+const s3 = new AWS.S3();
 
-export const handler: APIGatewayProxyHandler = async (
+export const createOrderHandler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    console.log('event: %j', event);
-    const correlationId = uuid();
-    const method = 'create-order.handler';
-    const prefix = `${correlationId} - ${method}`;
-
-    console.log(`${prefix} - started`);
-
-    if (!TableName) {
-      throw new Error('no table name supplied');
-    }
-
-    if (!Bucket) {
-      throw new Error('bucket name not supplied');
-    }
+    logger.info('started');
 
     if (!event.body) {
       throw new Error('no order supplied');
     }
+
+    // get the config values from process env
+    const application = config.get('appConfig.appConfigApplicationId');
+    const environment = config.get('appConfig.appConfigEnvironmentId');
+    const configuration = config.get('appConfig.appConfigConfigurationId');
+    const { preventCreateOrder, checkCreateOrderQuantity } =
+      config.get('flags');
+    const randomErrorsEnabled = config.get('shared.randomErrorsEnabled');
+    const ordersTable = config.get('tableName');
+    const bucketName = config.get('bucketname');
+
+    // get feature flags from appconfig
+    const flags: Flags | Record<string, unknown> = (await getFeatureFlags(
+      application,
+      environment,
+      configuration,
+      [preventCreateOrder, checkCreateOrderQuantity]
+    )) as Flags;
+
+    logger.info(`feature flags: ${JSON.stringify(flags)}`);
+
+    // we use a flag here to prevent the creation of new orders from an operational sense
+    if (flags.opsPreventCreateOrders.enabled) {
+      logger.error(
+        `opsPreventCreateOrders enabled so preventing new order creation`
+      );
+      throw new Error(
+        'The creation of orders is currently on hold for maintenance'
+      );
+    }
+
+    // if we have this enabled it will sometimes randomly throw errors
+    randomErrors(randomErrorsEnabled);
 
     // we take the body (payload) from the event coming through from api gateway
     const item = JSON.parse(event.body);
 
     // we wont validate the input with this being a basic example only
     const createdDateTime = new Date().toISOString();
+
     const order: Order = {
       id: uuid(),
       type: 'Orders',
@@ -58,11 +104,26 @@ export const handler: APIGatewayProxyHandler = async (
       ...item,
     };
 
-    console.log(`${prefix} - order: ${JSON.stringify(order)}`);
+    // we use a flag here for a new release which checks the quantity of the order
+    // alongside our progressive deployments to see how customers find this release
+    if (
+      flags.releaseCheckCreateOrderQuantity.enabled &&
+      order.quantity >= flags.releaseCheckCreateOrderQuantity.limit
+    ) {
+      logger.error(
+        `releaseCheckCreateOrderQuantity enabled so limiting quantities`
+      );
+      throw new Error(
+        `The quantity of ${order.quantity} is above the limit of ${flags.releaseCheckCreateOrderQuantity.limit}`
+      );
+    }
 
-    const getParams = {
-      TableName,
-      IndexName: 'recordTypeIndex',
+    logger.info(`order: ${JSON.stringify(order)}`);
+
+    // we validate that the order is for a real store that we have in config
+    const getParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+      TableName: ordersTable,
+      IndexName: 'storeIndex',
       KeyConditionExpression: '#type = :type',
       ExpressionAttributeNames: {
         '#type': 'type',
@@ -72,52 +133,63 @@ export const handler: APIGatewayProxyHandler = async (
       },
     };
 
-    const { Items: items } = await ddbDocClient.send(
-      new QueryCommand(getParams)
-    );
+    const { Items: items } = await dynamoDb.query(getParams).promise();
     const stores = items as Stores;
-    console.log(stores);
 
     if (!stores.find((item) => item.id === order.storeId)) {
       throw new Error(`${order.storeId} is not found`);
     }
 
-    const params: PutCommandInput = {
-      TableName,
+    const params: AWS.DynamoDB.DocumentClient.PutItemInput = {
+      TableName: ordersTable,
       Item: order,
     };
 
-    console.log(`${prefix} - create order: ${JSON.stringify(order)}`);
+    logger.info(`create order: ${JSON.stringify(order)}`);
 
-    const ddbCommand = new PutCommand(params);
-    await ddbDocClient.send(ddbCommand);
+    await dynamoDb.put(params).promise();
 
     // create a text invoice and push to s3 bucket
-    const request = {
-      Bucket,
+    const bucketParams: AWS.S3.PutObjectRequest = {
+      Bucket: bucketName,
       Key: `${order.id}-invoice.txt`,
       Body: JSON.stringify(order),
     };
 
-    const s3Command = new PutObjectCommand(request);
-    await s3Client.send(s3Command);
+    await s3.upload(bucketParams, {}).promise();
 
-    console.log(`${prefix} - invoice written to ${Bucket}`);
+    logger.info(`invoice written to ${bucketName}`);
 
-    // api gateway needs us to return this body (stringified) and the status code plus CORS headers
+    // we create the metric for success
+    metrics.addMetric('OrderCreatedSuccess', MetricUnit.Count, 1);
+
+    // api gateway needs us to return this body (stringified) and the status code
     return {
       body: JSON.stringify(order),
       statusCode: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-        'Access-Control-Allow-Credentials': true,
-      },
+      headers,
     };
   } catch (error) {
-    console.error(error);
-    throw error;
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) errorMessage = error.message;
+    logger.error(errorMessage);
+
+    // we create the metric for failure
+    metrics.addMetric('OrderCreatedError', MetricUnit.Count, 1);
+
+    return {
+      body: JSON.stringify(errorMessage),
+      statusCode: 400,
+      headers,
+    };
   }
 };
+
+export const handler = middy(createOrderHandler)
+  .use(
+    injectLambdaContext(logger, {
+      logEvent: logEvent.toLowerCase() === 'true' ? true : false,
+    })
+  )
+  .use(captureLambdaHandler(tracer))
+  .use(logMetrics(metrics));

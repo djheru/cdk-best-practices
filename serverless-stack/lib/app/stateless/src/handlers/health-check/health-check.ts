@@ -1,34 +1,40 @@
-import {
-  APIGatewayEvent,
-  APIGatewayProxyHandler,
-  APIGatewayProxyResult,
-} from 'aws-lambda';
+import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+import { MetricUnit, Metrics } from '@aws-lambda-powertools/metrics';
+import { logMetrics } from '@aws-lambda-powertools/metrics/middleware';
+import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 
-import { v4 as uuid } from 'uuid';
+import middy from '@middy/core';
+import { headers } from '../../shared';
 
-export const handler: APIGatewayProxyHandler = async (
-  event: APIGatewayEvent
-): Promise<APIGatewayProxyResult> => {
-  console.log('event: %j', event);
-  try {
-    const correlationId = uuid();
-    const method = 'health-check.handler';
-    const prefix = `${correlationId} - ${method}`;
+const logger = new Logger({ serviceName: 'health-check' });
+const metrics = new Metrics();
 
-    console.log(`${prefix} - success`);
-    return {
-      statusCode: 200,
-      body: JSON.stringify('success'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-        'Access-Control-Allow-Credentials': true,
-      },
-    };
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
-};
+export const healthCheckHandler: APIGatewayProxyHandler =
+  async (): Promise<APIGatewayProxyResult> => {
+    try {
+      logger.info('success');
+      return {
+        statusCode: 200,
+        body: JSON.stringify('success'),
+        headers,
+      };
+    } catch (error) {
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) errorMessage = error.message;
+      logger.error(errorMessage);
+
+      // we create the metric for failure
+      metrics.addMetric('HealthCheckError', MetricUnit.Count, 1);
+
+      return {
+        body: JSON.stringify(errorMessage),
+        statusCode: 400,
+        headers,
+      };
+    }
+  };
+
+export const handler = middy(healthCheckHandler)
+  .use(injectLambdaContext(logger))
+  .use(logMetrics(metrics));
