@@ -2,7 +2,7 @@
 // to test out rollbacks during deployment.
 export const randomErrors = (
   enabled: string | undefined,
-  threshold = 0.5
+  threshold = 0.25
 ): void | Error => {
   if (enabled?.toLowerCase() === 'false') return;
 
