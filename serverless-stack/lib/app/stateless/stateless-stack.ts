@@ -236,7 +236,7 @@ export class StatelessStack extends cdk.Stack {
         handler: 'handler',
         bundling: {
           minify: true,
-          externalModules: ['aws-sdk'],
+          externalModules: ['@aws-sdk/*'],
           sourceMap: true,
         },
         environment: {
@@ -274,7 +274,7 @@ export class StatelessStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['aws-sdk'],
+          externalModules: ['@aws-sdk/*'],
         },
         environment: {
           TABLE_NAME: table.tableName,
@@ -306,7 +306,7 @@ export class StatelessStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['aws-sdk'],
+          externalModules: ['@aws-sdk/*'],
         },
         layers: [appConfigLambdaLayerExtension],
         environment: {
@@ -336,7 +336,7 @@ export class StatelessStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['aws-sdk'],
+          externalModules: ['@aws-sdk/*'],
         },
       }
     );

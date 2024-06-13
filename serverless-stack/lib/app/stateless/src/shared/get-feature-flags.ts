@@ -46,6 +46,6 @@ export const getFeatureFlags = async (
     configuration,
     optionalFlags
   );
-  const config = await axios.get(url);
+  const config = await axios.get(url); // TODO fetch only
   return config.data;
 };

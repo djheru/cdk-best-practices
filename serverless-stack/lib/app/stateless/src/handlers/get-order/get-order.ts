@@ -1,5 +1,3 @@
-import * as AWS from 'aws-sdk';
-
 import { Logger } from '@aws-lambda-powertools/logger';
 import { LogLevel } from '@aws-lambda-powertools/logger/lib/cjs/types/Log';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
@@ -7,6 +5,8 @@ import { MetricUnit, Metrics } from '@aws-lambda-powertools/metrics';
 import { logMetrics } from '@aws-lambda-powertools/metrics/middleware';
 import { Tracer } from '@aws-lambda-powertools/tracer';
 import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import {
   APIGatewayEvent,
@@ -15,15 +15,12 @@ import {
 } from 'aws-lambda';
 import { config } from '../../config';
 import { Flags, getFeatureFlags, headers, randomErrors } from '../../shared';
+import { Order } from '../../types';
 
-type Order = {
-  id: string;
-  quantity: number;
-  productId: string;
-  storeId: string;
-  created: string;
-  type: string;
-};
+const dynamodbClient = new DynamoDBClient({});
+const ddbDocClient = DynamoDBDocumentClient.from(dynamodbClient, {
+  marshallOptions: { removeUndefinedValues: true },
+});
 
 const { logLevel, logSampleRate, logEvent } = config.get('shared.functions');
 
@@ -35,17 +32,16 @@ const logger = new Logger({
 
 const tracer = new Tracer();
 const metrics = new Metrics();
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-export const getOrderHandler: APIGatewayProxyHandler = async (
+const getOrderHandler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('started');
+    logger.info('started', { event });
 
-    if (!event?.pathParameters)
+    if (!event?.pathParameters || !event.pathParameters.id) {
       throw new Error('no id in the path parameters of the event');
-
+    }
     // we get the specific order id from the path parameters in the event from api gateway
     const { id } = event.pathParameters;
 
@@ -54,7 +50,7 @@ export const getOrderHandler: APIGatewayProxyHandler = async (
     const environment = config.get('appConfig.appConfigEnvironmentId');
     const configuration = config.get('appConfig.appConfigConfigurationId');
     const randomErrorsEnabled = config.get('shared.randomErrorsEnabled');
-    const ordersTable = config.get('tableName');
+    const TableName = config.get('tableName');
 
     // get feature flags from appconfig
     const flags: Flags | Record<string, unknown> = await getFeatureFlags(
@@ -68,16 +64,16 @@ export const getOrderHandler: APIGatewayProxyHandler = async (
     // if we have this enabled it will sometimes randomly throw errors
     randomErrors(randomErrorsEnabled);
 
-    const params: AWS.DynamoDB.DocumentClient.GetItemInput = {
-      TableName: ordersTable,
+    const params = {
+      TableName,
       Key: {
         id,
       },
     };
 
-    logger.info(`get order: ${id}`);
+    const command = new GetCommand(params);
 
-    const { Item: item } = await dynamoDb.get(params).promise();
+    const { Item: item } = await ddbDocClient.send(command);
 
     if (!item) throw new Error(`order id ${id} is not found`);
 
@@ -90,13 +86,13 @@ export const getOrderHandler: APIGatewayProxyHandler = async (
       type: item.type,
     };
 
-    // we create the metric for success
+    // add the success metric
     metrics.addMetric('GetOrderSuccess', MetricUnit.Count, 1);
 
     // api gateway needs us to return this body (stringified) and the status code
     return {
       statusCode: 200,
-      body: JSON.stringify(order),
+      body: JSON.stringify(order || {}),
       headers,
     };
   } catch (error) {
@@ -118,7 +114,7 @@ export const getOrderHandler: APIGatewayProxyHandler = async (
 export const handler = middy(getOrderHandler)
   .use(
     injectLambdaContext(logger, {
-      logEvent: logEvent.toLowerCase() === 'true' ? true : false,
+      logEvent: logEvent.toLowerCase() === 'true',
     })
   )
   .use(captureLambdaHandler(tracer))
