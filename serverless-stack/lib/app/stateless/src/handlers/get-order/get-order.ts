@@ -37,7 +37,7 @@ const getOrderHandler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('started', { event });
+    logger.info('start', { event });
 
     if (!event?.pathParameters || !event.pathParameters.id) {
       throw new Error('no id in the path parameters of the event');

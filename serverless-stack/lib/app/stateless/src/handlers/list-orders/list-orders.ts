@@ -37,7 +37,7 @@ const listOrderHandler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('started', { event });
+    logger.info('start', { event });
 
     // get the config values from process env
     const application = config.get('appConfig.appConfigApplicationId');

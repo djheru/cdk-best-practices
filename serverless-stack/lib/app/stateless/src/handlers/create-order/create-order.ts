@@ -45,7 +45,7 @@ const createOrderHandler: APIGatewayProxyHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('started', { event });
+    logger.info('start', { event });
 
     if (!event.body) {
       throw new Error('no order supplied');
