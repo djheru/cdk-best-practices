@@ -73,8 +73,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: 128,
       canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
-      // randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
-      randomErrorsEnabled: 'true',
+      randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
     },
     client: {
       bucketName: 'serverless-client-dev-bucket-' + Account.dev,
@@ -100,7 +99,7 @@ export const environments: Record<Stage, EnvironmentConfig> = {
     stateless: {
       lambdaMemorySize: 512,
       canaryNotificationEmail: process.env.NOTIFICATION_EMAIL as string,
-      randomErrorsEnabled: 'true',
+      randomErrorsEnabled: process.env.RANDOM_ERRORS_ENABLED || 'false',
     },
     client: {
       bucketName: 'serverless-client-staging-bucket-' + Account.staging,

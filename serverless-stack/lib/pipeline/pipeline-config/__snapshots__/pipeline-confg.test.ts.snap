@@ -23,7 +23,7 @@ exports[`pipeline-config should return the correct config for feature-dev 1`] = 
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 128,
-    "randomErrorsEnabled": "true",
+    "randomErrorsEnabled": "false",
   },
 }
 `;
@@ -51,7 +51,7 @@ exports[`pipeline-config should return the correct config for prod 1`] = `
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 1024,
-    "randomErrorsEnabled": "true",
+    "randomErrorsEnabled": "false",
   },
 }
 `;
@@ -79,7 +79,7 @@ exports[`pipeline-config should return the correct config for staging 1`] = `
   "stateless": {
     "canaryNotificationEmail": "djheru@gmail.com",
     "lambdaMemorySize": 512,
-    "randomErrorsEnabled": "true",
+    "randomErrorsEnabled": "false",
   },
 }
 `;
